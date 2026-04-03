@@ -144,6 +144,7 @@ WEB_PRIORITY_OPTIONS = (
     (PUSHOVER_PRIORITY_NORMAL, "High"),
     (PUSHOVER_PRIORITY_EMERGENCY, "Emergency"),
 )
+WEB_PRIORITY_VALUES = frozenset(value for value, _ in WEB_PRIORITY_OPTIONS)
 type LorisSummonConfigEntry = ConfigEntry[LorisSummonRuntime]  # type: ignore
 TRIGGER_SERVICE_SCHEMA = vol.Schema(
     {
@@ -578,8 +579,6 @@ class LorisSummonStatusStreamView(LorisSummonView):
         try:
             snapshot = {"ok": True, **runtime.browser_status()}
             await _async_write_sse_event(response, "status", snapshot)
-            if not snapshot.get("watched_events"):
-                return response
 
             while True:
                 try:
@@ -587,8 +586,6 @@ class LorisSummonStatusStreamView(LorisSummonView):
                     status_changed.clear()
                     snapshot = {"ok": True, **runtime.browser_status()}
                     await _async_write_sse_event(response, "status", snapshot)
-                    if not snapshot.get("watched_events"):
-                        break
                 except asyncio.TimeoutError:
                     await response.write(b": keep-alive\n\n")
         except (ConnectionResetError, RuntimeError):
@@ -1111,7 +1108,7 @@ def _render_priority_options(selected_priority: str) -> str:
     # Keep the priority selector server rendered so non JavaScript form posts stay correct
     normalized_priority = str(selected_priority).strip(
     ).lower() or DEFAULT_SUMMON_PRIORITY
-    if normalized_priority not in {value for value, _ in WEB_PRIORITY_OPTIONS}:
+    if normalized_priority not in WEB_PRIORITY_VALUES:
         normalized_priority = DEFAULT_SUMMON_PRIORITY
     return "".join(
         f'<option value="{value}"{" selected" if value == normalized_priority else ""}>{label}</option>'
@@ -1154,9 +1151,9 @@ def _human_error_reason(reason: str) -> str:
         "invalid": "empty command",
         "invalid priority": "invalid priority",
         "rate limited": "rate limit",
-        "attachment is not a supported image": "attachment must be an image file",
-        "attachment exceeds the 5 mb pushover limit": "attachment exceeds the 5 MB limit",
-        "attachment exceeds the 25 mb processing limit": "attachment exceeds the 25 MB upload limit",
+        "attachment is empty": "attachment was empty",
+        "attachment is not a supported image or video": "attachment must be an image or video file",
+        "attachment exceeds the 25 mb upload limit": "attachment exceeds the 25 MB upload limit",
         "voice note is empty": "voice note was empty",
         "voice note is not a supported audio file": "voice note must be an audio file",
         "voice note exceeds the 75 mb upload limit": "voice note exceeds the 75 MB upload limit",

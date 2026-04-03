@@ -54,7 +54,7 @@ class LastSummonSensor(LorisSummonEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict:
-        # Surface the latest event and compact history for dashboards and automations
+        # Surface only the latest event summary so recorder/state updates stay compact
         last_event = self._last_event or {}
         return {
             ATTR_MESSAGE: last_event.get(ATTR_MESSAGE),
@@ -65,7 +65,7 @@ class LastSummonSensor(LorisSummonEntity, SensorEntity):
             ATTR_ACKNOWLEDGED_BY: last_event.get(ATTR_ACKNOWLEDGED_BY),
             ATTR_NEXT_REMINDER_AT: last_event.get(ATTR_NEXT_REMINDER_AT),
             ATTR_REMINDER_COUNT: last_event.get(ATTR_REMINDER_COUNT, 0),
-            "history": self._history,
+            "saved_summons": self._history_count,
         }
 
 
@@ -79,4 +79,4 @@ class SavedSummonsSensor(LorisSummonEntity, SensorEntity):
 
     @property
     def native_value(self):
-        return len(self._history)
+        return self._history_count

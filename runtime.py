@@ -10,6 +10,7 @@ import html
 import hashlib
 import hmac
 from io import BytesIO
+from itertools import chain
 import json
 import logging
 import mimetypes
@@ -20,7 +21,7 @@ from urllib.parse import quote
 from uuid import uuid4
 
 from aiohttp import FormData  # type: ignore
-from PIL import Image, ImageOps, UnidentifiedImageError  # type: ignore
+from PIL import Image, UnidentifiedImageError  # type: ignore
 
 from homeassistant.config_entries import ConfigEntry  # type: ignore
 from homeassistant.const import ATTR_ENTITY_ID, STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN  # type: ignore
@@ -148,22 +149,19 @@ STORE_VERSION = 1
 STORE_ACTIVE_EVENT_ID = "active_event_id"
 STORE_WATCHED_EVENTS = "watched_events"
 SUMMARY_ACTIVE_EVENT = "active_event"
+SUMMARY_HISTORY_COUNT = "history_count"
+SUMMARY_LAST_EVENT = "last_event"
 SUMMARY_MATCHING_EVENT = "matching_event"
 SUMMARY_WATCHED_EVENTS = "watched_events"
 WEB_JWT_MAX_AGE_SECONDS = 604800
 WEB_JWT_REFRESH_WINDOW_SECONDS = 43200
-ATTACHMENT_MAX_BYTES = 5_242_880
-ATTACHMENT_PROCESS_MAX_BYTES = 26_214_400
+ATTACHMENT_UPLOAD_MAX_BYTES = 26_214_400
 VOICE_NOTE_MAX_BYTES = 78_643_200
-ATTACHMENT_MIN_DIMENSION = 160
 IMAGE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
+VIDEO_SUFFIXES = {".3gp", ".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm"}
 VOICE_NOTE_SUFFIXES = {".aac", ".m4a", ".mp3", ".mp4", ".oga", ".ogg", ".opus", ".wav", ".weba", ".webm"}
-PUSHOVER_ATTACHMENT_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png"}
-JPEG_SAVE_QUALITIES = (92, 85, 75, 65)
-RESIZE_SCALE_FACTOR = 0.82
 PUSHOVER_MESSAGES_URL = "https://api.pushover.net/1/messages.json"
 PUSHOVER_RECEIPT_CANCEL_URL = "https://api.pushover.net/1/receipts/{receipt}/cancel.json"
-VOICE_NOTE_URL_TITLE = "Play voice note"
 PRIORITY_VALUE_MAP = {
     PUSHOVER_PRIORITY_LOWEST: -2,
     PUSHOVER_PRIORITY_LOW: -1,
@@ -214,10 +212,17 @@ def _normalize_priority(priority: Any) -> str | None:
 
 
 def _looks_like_image(filename: str, mime_type: str | None) -> bool:
-    # Restrict uploads to images because Pushover attachments here are meant for image notifications
-    if mime_type and mime_type.startswith("image/"):
+    normalized_mime_type = _normalized_upload_mime_type(mime_type)
+    if normalized_mime_type and normalized_mime_type.startswith("image/"):
         return True
     return Path(filename).suffix.lower() in IMAGE_SUFFIXES
+
+
+def _looks_like_video(filename: str, mime_type: str | None) -> bool:
+    normalized_mime_type = _normalized_upload_mime_type(mime_type)
+    if normalized_mime_type and normalized_mime_type.startswith("video/"):
+        return True
+    return Path(filename).suffix.lower() in VIDEO_SUFFIXES
 
 
 def _normalized_upload_mime_type(mime_type: str | None) -> str | None:
@@ -234,88 +239,40 @@ def _looks_like_voice_note(filename: str, mime_type: str | None) -> bool:
     return Path(filename).suffix.lower() in VOICE_NOTE_SUFFIXES
 
 
-def _normalize_attachment_image(
+def _attachment_kind(filename: str, mime_type: str | None) -> str | None:
+    if _looks_like_image(filename, mime_type):
+        return "image"
+    if _looks_like_video(filename, mime_type):
+        return "video"
+    return None
+
+
+def _normalize_attachment_upload(
     filename: str,
     data: bytes,
     mime_type: str | None,
 ) -> tuple[str, bytes]:
-    # Convert uploads into formats that Pushover consistently renders across sources
-    if not _looks_like_image(filename, mime_type):
-        raise ValueError("attachment is not a supported image")
-    if len(data) > ATTACHMENT_PROCESS_MAX_BYTES:
-        raise ValueError("attachment exceeds the 25 MB processing limit")
-
-    try:
-        with Image.open(BytesIO(data)) as image:
-            image.load()
-            normalized = ImageOps.exif_transpose(image)
-            if getattr(normalized, "is_animated", False):
-                normalized.seek(0)
-                first_frame = normalized.copy()
-            else:
-                first_frame = normalized.copy()
-    except (OSError, UnidentifiedImageError, ValueError) as err:
-        raise ValueError("attachment is not a supported image") from err
-
-    suffix = Path(filename).suffix.lower()
-    if suffix in PUSHOVER_ATTACHMENT_SUFFIXES and len(data) <= ATTACHMENT_MAX_BYTES:
-        return filename, data
-
-    return _render_attachment_under_limit(Path(filename).stem or "attachment", first_frame)
-
-
-def _normalize_original_attachment_upload(
-    filename: str,
-    data: bytes,
-    mime_type: str | None,
-) -> tuple[str, bytes]:
-    # Validate the uploaded image while preserving the original file for history previews and downloads
-    if not _looks_like_image(filename, mime_type):
-        raise ValueError("attachment is not a supported image")
-    if len(data) > ATTACHMENT_PROCESS_MAX_BYTES:
-        raise ValueError("attachment exceeds the 25 MB processing limit")
-
-    try:
-        with Image.open(BytesIO(data)) as image:
-            image.verify()
-    except (OSError, UnidentifiedImageError, ValueError) as err:
-        raise ValueError("attachment is not a supported image") from err
-
+    # Validate uploaded images and videos while preserving the original file for history previews and downloads
+    if not data:
+        raise ValueError("attachment is empty")
+    kind = _attachment_kind(filename, mime_type)
+    if kind is None:
+        raise ValueError("attachment is not a supported image or video")
+    if len(data) > ATTACHMENT_UPLOAD_MAX_BYTES:
+        raise ValueError("attachment exceeds the 25 MB upload limit")
+    if kind == "image":
+        try:
+            with Image.open(BytesIO(data)) as image:
+                image.verify()
+        except (OSError, UnidentifiedImageError, ValueError) as err:
+            raise ValueError("attachment is not a supported image or video") from err
     normalized_mime_type = _normalized_upload_mime_type(mime_type)
     suffix = (
         Path(filename).suffix.lower()
         or mimetypes.guess_extension(normalized_mime_type or "")
-        or ".png"
+        or (".png" if kind == "image" else ".mp4")
     )
     return f"{Path(filename).stem or 'attachment'}{suffix}", data
-
-
-def _image_has_alpha(image: Image.Image) -> bool:
-    # Preserve transparency when possible so converted screenshots still look correct
-    if image.mode in {"RGBA", "LA"}:
-        return True
-    return bool(image.info.get("transparency"))
-
-
-def _render_attachment_under_limit(stem: str, image: Image.Image) -> tuple[str, bytes]:
-    # Resize and recompress until the file fits under Pushover's attachment limit
-    resampling_module = getattr(Image, "Resampling", Image)
-    working = image.copy()
-    for _ in range(8):
-        candidate = _best_attachment_candidate(stem, working)
-        if candidate is not None:
-            return candidate
-        next_width = max(ATTACHMENT_MIN_DIMENSION, int(
-            working.width * RESIZE_SCALE_FACTOR))
-        next_height = max(
-            ATTACHMENT_MIN_DIMENSION,
-            int(working.height * RESIZE_SCALE_FACTOR),
-        )
-        if (next_width, next_height) == working.size:
-            break
-        working = working.resize(
-            (next_width, next_height), resampling_module.LANCZOS)
-    raise ValueError("attachment exceeds the 5 MB pushover limit")
 
 
 def _normalize_voice_note_upload(
@@ -337,38 +294,6 @@ def _normalize_voice_note_upload(
         or ".webm"
     )
     return f"{Path(filename).stem or 'voice_note'}{suffix}", data
-
-
-def _best_attachment_candidate(stem: str, image: Image.Image) -> tuple[str, bytes] | None:
-    # Prefer visually cleaner formats first, then fall back to JPEG when size is the blocker
-    rgba_image = image.convert("RGBA")
-    png_buffer = BytesIO()
-    rgba_image.save(png_buffer, format="PNG", optimize=True)
-    png_bytes = png_buffer.getvalue()
-    if len(png_bytes) <= ATTACHMENT_MAX_BYTES:
-        return f"{stem}.png", png_bytes
-
-    flattened = _flatten_for_jpeg(rgba_image)
-    for quality in JPEG_SAVE_QUALITIES:
-        jpeg_buffer = BytesIO()
-        flattened.save(
-            jpeg_buffer,
-            format="JPEG",
-            quality=quality,
-            optimize=True,
-        )
-        jpeg_bytes = jpeg_buffer.getvalue()
-        if len(jpeg_bytes) <= ATTACHMENT_MAX_BYTES:
-            return f"{stem}.jpg", jpeg_bytes
-    return None
-
-
-def _flatten_for_jpeg(image: Image.Image) -> Image.Image:
-    # Remove transparency against a neutral background because JPEG cannot encode alpha
-    background = Image.new("RGB", image.size, (255, 255, 255))
-    alpha = image.getchannel("A") if "A" in image.getbands() else None
-    background.paste(image.convert("RGB"), mask=alpha)
-    return background
 
 
 @dataclasses.dataclass(slots=True)
@@ -442,7 +367,8 @@ class LorisSummonRuntime:
             len(self._history),
             self._active_event_id,
         )
-        if self._restore_outstanding_state():
+        restored_outstanding = self._restore_outstanding_state()
+        if restored_outstanding:
             await self._async_save_state()
         self._notify_state_changed()
 
@@ -684,8 +610,9 @@ class LorisSummonRuntime:
 
     @property
     def state_summary(self) -> dict[str, Any]:
-        # Return detached copies because entities should observe state rather than own it
+        # Keep entity-facing state compact; rich history stays available through the browser API only
         active = self.active_event
+        last_event = dict(self._history[0]) if self._history else None
         return {
             ATTR_LAST_TRIGGERED_AT: (
                 self._last_trigger_at.isoformat() if self._last_trigger_at else None
@@ -693,8 +620,9 @@ class LorisSummonRuntime:
             ATTR_PENDING_ACK: bool(self._outstanding_events()),
             ATTR_COOLDOWN_UNTIL: self._cooldown_until_iso(),
             ATTR_RATE_LIMITED_UNTIL: self._rate_limited_until_iso(),
-            ATTR_HISTORY: [dict(item) for item in self._history],
             SUMMARY_ACTIVE_EVENT: active,
+            SUMMARY_HISTORY_COUNT: len(self._history),
+            SUMMARY_LAST_EVENT: last_event,
             SUMMARY_WATCHED_EVENTS: [dict(item) for item in self._watched_events.values()],
         }
 
@@ -835,9 +763,9 @@ class LorisSummonRuntime:
         data: bytes,
         mime_type: str | None = None,
     ) -> str:
-        # Persist the original uploaded image so history previews and downloads keep the source file intact
+        # Persist the original uploaded attachment so history previews and downloads keep the source file intact
         normalized_filename, normalized_data = await self.hass.async_add_executor_job(
-            _normalize_original_attachment_upload,
+            _normalize_attachment_upload,
             filename,
             data,
             mime_type,
@@ -974,18 +902,19 @@ class LorisSummonRuntime:
         return search_text in haystack
 
     def _summon_sort_key(self, event: dict[str, Any], sort_by: str) -> tuple[Any, ...]:
+        priority_value = PRIORITY_VALUE_MAP.get(
+            _normalize_priority(event.get(ATTR_PRIORITY)) or DEFAULT_SUMMON_PRIORITY,
+            PRIORITY_VALUE_MAP[DEFAULT_SUMMON_PRIORITY],
+        )
+        event_timestamp = self._event_time(event).timestamp()
         if sort_by == "priority":
-            priority = _normalize_priority(event.get(ATTR_PRIORITY)) or DEFAULT_SUMMON_PRIORITY
             return (
-                PRIORITY_VALUE_MAP.get(priority, PRIORITY_VALUE_MAP[DEFAULT_SUMMON_PRIORITY]),
-                self._event_time(event).timestamp(),
+                priority_value,
+                event_timestamp,
             )
         return (
-            self._event_time(event).timestamp(),
-            PRIORITY_VALUE_MAP.get(
-                _normalize_priority(event.get(ATTR_PRIORITY)) or DEFAULT_SUMMON_PRIORITY,
-                PRIORITY_VALUE_MAP[DEFAULT_SUMMON_PRIORITY],
-            ),
+            event_timestamp,
+            priority_value,
         )
 
     async def async_delete_summon(self, event_id: str) -> dict[str, Any]:
@@ -1018,7 +947,7 @@ class LorisSummonRuntime:
         stored_events: list[dict[str, Any]] = []
         seen_event_ids: set[str] = set()
 
-        for candidate in [*self._history, *self._watched_events.values()]:
+        for candidate in chain(self._history, self._watched_events.values()):
             event_id = str(candidate.get(ATTR_EVENT_ID) or "").strip()
             if event_id and event_id in seen_event_ids:
                 continue
@@ -1106,7 +1035,10 @@ class LorisSummonRuntime:
             self._delete_attachment_file(cloned_voice_note_path)
         return result
 
-    async def _send_notification(self, payload: dict[str, Any]) -> dict[str, Any]:
+    async def _send_notification(
+        self,
+        payload: dict[str, Any],
+    ) -> dict[str, Any]:
         # Send notifications directly to Pushover so emergency receipts and callbacks can be tracked
         form = await self._pushover_form_data(payload)
         session = async_get_clientsession(self.hass)
@@ -1184,34 +1116,52 @@ class LorisSummonRuntime:
         except HomeAssistantError as err:
             _LOGGER.warning("Failed to render Lori's Summon template: %s", err)
             rendered_message = str(payload[ATTR_MESSAGE])
-        return self._message_with_voice_note_link(rendered_message, payload)
+        return self._message_with_media_links(rendered_message, payload)
 
-    def _message_with_voice_note_link(
+    def _message_with_media_links(
         self,
         message_text: str,
         payload: dict[str, Any],
     ) -> str:
-        # Render the voice-note link as labeled HTML so the client shows a short link instead of a raw URL
+        # Render short labeled media links so Pushover does not need to show raw URLs in the message body
+        links: list[str] = []
         voice_note_url = self.voice_note_player_url_for_payload(payload)
-        if not voice_note_url:
-            if (
-                str(payload.get(ATTR_VOICE_NOTE_PATH) or "").strip()
-                and not payload.get("reminder")
-            ):
-                self._debug(
-                    "voice note present for %s but no reachable playback URL could be built",
-                    str(payload.get(ATTR_EVENT_ID) or ""),
-                )
+        if voice_note_url:
+            links.append(
+                f'<a href="{html.escape(voice_note_url, quote=True)}">Voice Note</a>'
+            )
+        elif (
+            str(payload.get(ATTR_VOICE_NOTE_PATH) or "").strip()
+            and not payload.get("reminder")
+        ):
+            self._debug(
+                "voice note present for %s but no reachable playback URL could be built",
+                str(payload.get(ATTR_EVENT_ID) or ""),
+            )
+        attachment_url = self.attachment_url_for_payload(payload)
+        if attachment_url:
+            links.append(
+                f'<a href="{html.escape(attachment_url, quote=True)}">Attachment</a>'
+            )
+        elif (
+            str(payload.get(ATTR_ATTACHMENT_PATH) or "").strip()
+            and not payload.get("reminder")
+        ):
+            self._debug(
+                "attachment present for %s but no reachable download URL could be built",
+                str(payload.get(ATTR_EVENT_ID) or ""),
+            )
+        if not links:
             return message_text
         escaped_message = html.escape(message_text).replace("\n", "<br>")
         separator = "<br><br>" if escaped_message else ""
-        return (
-            f"{escaped_message}{separator}"
-            f'<a href="{html.escape(voice_note_url, quote=True)}">Voice Note</a>'
-        )
+        return f"{escaped_message}{separator}" + "<br>".join(links)
 
-    async def _pushover_form_data(self, payload: dict[str, Any]) -> FormData:
-        # Build one multipart request so Pushover can receive both text fields and image attachments
+    async def _pushover_form_data(
+        self,
+        payload: dict[str, Any],
+    ) -> FormData:
+        # Build one request so Pushover can receive the summon text plus any signed media links
         priority_label = _normalize_priority(payload.get(ATTR_PRIORITY)) or DEFAULT_SUMMON_PRIORITY
         form = FormData()
         form.add_field("token", self._pushover_app_token())
@@ -1221,8 +1171,9 @@ class LorisSummonRuntime:
             form.add_field("device", device)
         form.add_field("title", str(self._value(CONF_ALERT_TITLE) or DEFAULT_ALERT_TITLE))
         voice_note_url = self.voice_note_player_url_for_payload(payload)
+        attachment_url = self.attachment_url_for_payload(payload)
         form.add_field("message", self._render_message(payload))
-        if voice_note_url:
+        if voice_note_url or attachment_url:
             form.add_field("html", "1")
         form.add_field("priority", str(PRIORITY_VALUE_MAP[priority_label]))
         pushover_sound = self._pushover_sound_for_priority(priority_label)
@@ -1238,23 +1189,6 @@ class LorisSummonRuntime:
                 _LOGGER.warning(
                     "Lori's Summon could not determine a public Home Assistant URL for the Pushover callback"
                 )
-        attachment_path = str(payload.get(ATTR_ATTACHMENT_PATH) or "").strip()
-        if attachment_path and Path(attachment_path).exists():
-            original_attachment_bytes = await self.hass.async_add_executor_job(
-                Path(attachment_path).read_bytes
-            )
-            processed_attachment_filename, processed_attachment_bytes = await self.hass.async_add_executor_job(
-                _normalize_attachment_image,
-                Path(attachment_path).name,
-                original_attachment_bytes,
-                mimetypes.guess_type(attachment_path)[0],
-            )
-            form.add_field(
-                "attachment",
-                processed_attachment_bytes,
-                filename=processed_attachment_filename,
-                content_type=mimetypes.guess_type(processed_attachment_filename)[0] or "application/octet-stream",
-            )
         return form
 
     def _pushover_delivery_metadata(
@@ -1376,6 +1310,23 @@ class LorisSummonRuntime:
         token = self._attachment_access_token(event_id, attachment_path)
         return self.attachment_file_url_for_request(event_id, token)
 
+    def attachment_url_for_payload(self, payload: dict[str, Any]) -> str | None:
+        base_url = (
+            str(payload.get(ATTR_VOICE_NOTE_BASE_URL) or "").strip().rstrip("/")
+            or self._voice_note_base_url()
+        )
+        event_id = str(payload.get(ATTR_EVENT_ID) or "").strip()
+        attachment_path = str(payload.get(ATTR_ATTACHMENT_PATH) or "").strip()
+        if not base_url or not event_id or not attachment_path:
+            return None
+        if not Path(attachment_path).exists():
+            return None
+        token = self._attachment_access_token(event_id, attachment_path)
+        return (
+            f"{base_url}{ATTACHMENT_FILE_PATH}"
+            f"?event_id={quote(event_id, safe='')}&token={quote(token, safe='')}"
+        )
+
     def resolve_voice_note_path(self, event_id: str | None, token: str | None) -> Path | None:
         # Validate the signed playback token against the stored summon record before serving audio
         event = self._watched_event(event_id) or self._event_record(event_id)
@@ -1438,7 +1389,7 @@ class LorisSummonRuntime:
         )
 
     def _voice_note_base_url(self) -> str | None:
-        # Voice-note playback can fall back to the internal URL because the client device, not Pushover's servers, opens it
+        # Media links can fall back to the internal URL because the client device, not Pushover's servers, opens them
         candidates = (
             getattr(self.hass.config, "external_url", None),
             getattr(self.hass.config, "internal_url", None),
@@ -1460,6 +1411,14 @@ class LorisSummonRuntime:
         )
         has_attachment = bool(attachment_path and Path(attachment_path).exists())
         has_voice_note = bool(voice_note_path and Path(voice_note_path).exists())
+        attachment_kind = (
+            _attachment_kind(
+                Path(attachment_path).name,
+                mimetypes.guess_type(attachment_path)[0],
+            )
+            if has_attachment
+            else None
+        )
         attachment_url: str | None = None
         play_url: str | None = None
         download_url: str | None = None
@@ -1477,6 +1436,7 @@ class LorisSummonRuntime:
             "acknowledged": acknowledged,
             "disposition": str(event.get(ATTR_DISPOSITION) or ""),
             "has_attachment": has_attachment,
+            "attachment_kind": attachment_kind,
             "attachment_filename": Path(attachment_path).name if has_attachment else None,
             "attachment_url": attachment_url,
             "has_voice_note": has_voice_note,
@@ -1732,18 +1692,23 @@ class LorisSummonRuntime:
             state_changed = True
 
         active = self._active_event_record()
-        if active is not None and self._event_requires_attention(active):
+        if active is None:
+            if self._active_event_id is not None:
+                self._active_event_id = None
+                state_changed = True
+            return state_changed
+
+        if self._event_requires_attention(active):
             event_id = str(active.get(ATTR_EVENT_ID) or "").strip()
             if event_id and event_id not in self._watched_events:
                 self._watched_events[event_id] = active
                 state_changed = True
-        else:
-            if active is not None:
-                state_changed = self._finalize_delivered_event(active) or state_changed
-            if self._active_event_id is not None:
-                self._active_event_id = None
-                state_changed = True
+            return state_changed
 
+        state_changed = self._finalize_delivered_event(active) or state_changed
+        if self._active_event_id is not None:
+            self._active_event_id = None
+            state_changed = True
         return state_changed
 
     def _cooldown_until(self) -> datetime | None:
@@ -1845,26 +1810,15 @@ class LorisSummonRuntime:
         active = self._active_event_record()
         if self._event_requires_attention(active):
             return active
-        watched_items = [
-            item for item in self._watched_events.values()
-            if self._event_requires_attention(item)
-        ]
-        if not watched_items:
-            return None
-        return max(watched_items, key=self._event_time)
-
-    def _all_event_records(self, event_id: str | None) -> list[dict[str, Any]]:
-        records: list[dict[str, Any]] = []
-        seen: set[int] = set()
-        for candidate in (
-            self._event_record(event_id),
-            self._watched_event(event_id),
-        ):
-            if candidate is None or id(candidate) in seen:
-                continue
-            seen.add(id(candidate))
-            records.append(candidate)
-        return records
+        return max(
+            (
+                item
+                for item in self._watched_events.values()
+                if self._event_requires_attention(item)
+            ),
+            key=self._event_time,
+            default=None,
+        )
 
     def _watched_event(self, event_id: str | None) -> dict[str, Any] | None:
         # Prefer the live watched snapshot so browser status can survive history trimming

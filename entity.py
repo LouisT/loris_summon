@@ -61,12 +61,12 @@ class LorisSummonEntity(Entity):
         return self._summary.get("active_event")
 
     @property
-    def _history(self) -> list[dict]:
-        return self._summary.get("history", [])
+    def _history_count(self) -> int:
+        return int(self._summary.get("history_count") or 0)
 
     @property
     def _last_event(self) -> dict | None:
-        return self._history[0] if self._history else None
+        return self._summary.get("last_event")
 
     @callback
     def _handle_runtime_update(self) -> None:
