@@ -1213,7 +1213,10 @@
             "Accept": "application/json",
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({ username, password })
+          body: JSON.stringify({
+            username,
+            password
+          })
         });
         const payload = await response.json().catch(() => null);
         if (!response.ok || !payload || !payload.token) {
@@ -1531,7 +1534,9 @@
       activeTab = tabName === "voice-notes" ? "voice-notes" : "summon";
       applyActiveTab();
       if (activeTab === "voice-notes" && !voiceNotesLoaded) {
-        await loadVoiceNotesPage({ reset: true });
+        await loadVoiceNotesPage({
+          reset: true
+        });
       }
     }
 
@@ -1559,7 +1564,9 @@
       voiceNotesNextOffset = 0;
       voiceNoteEventIds.clear();
       if (activeTab === "voice-notes") {
-        void loadVoiceNotesPage({ reset: true });
+        void loadVoiceNotesPage({
+          reset: true
+        });
       } else {
         setVoiceNotesStatus("Sent summons updated. Open this tab to refresh.");
       }
@@ -1575,7 +1582,9 @@
       );
     }
 
-    async function loadVoiceNotesPage({ reset = false } = {}) {
+    async function loadVoiceNotesPage({
+      reset = false
+    } = {}) {
       if (!voiceNotesList || !voiceNotesShell || voiceNotesLoading) {
         return false;
       }
@@ -2130,9 +2139,13 @@
       setVoiceNoteStatus("Requesting microphone access...");
       updateVoiceNoteButtons();
       try {
-        voiceNoteStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        voiceNoteStream = await navigator.mediaDevices.getUserMedia({
+          audio: true
+        });
         const mimeType = preferredVoiceNoteMimeType();
-        voiceNoteRecorder = mimeType ? new MediaRecorder(voiceNoteStream, { mimeType }) : new MediaRecorder(voiceNoteStream);
+        voiceNoteRecorder = mimeType ? new MediaRecorder(voiceNoteStream, {
+          mimeType
+        }) : new MediaRecorder(voiceNoteStream);
         voiceNoteChunks = [];
         voiceNoteMimeType = voiceNoteRecorder.mimeType || mimeType || "";
         voiceNoteStartedAt = Date.now();
@@ -2144,8 +2157,9 @@
         });
         voiceNoteRecorder.addEventListener("stop", () => {
           const finishedBlob = new Blob(
-            voiceNoteChunks,
-            { type: voiceNoteRecorder && voiceNoteRecorder.mimeType ? voiceNoteRecorder.mimeType : (voiceNoteMimeType || "audio/webm") }
+            voiceNoteChunks, {
+              type: voiceNoteRecorder && voiceNoteRecorder.mimeType ? voiceNoteRecorder.mimeType : (voiceNoteMimeType || "audio/webm")
+            }
           );
           stopVoiceNoteStream();
           voiceNoteChunks = [];
@@ -2176,7 +2190,9 @@
           setVoiceNoteStatus(`Voice note ready (${formatVoiceNoteDuration(voiceNoteDurationSeconds)}).`);
           updateVoiceNoteButtons();
           continueSubmitAfterVoiceNoteStop();
-        }, { once: true });
+        }, {
+          once: true
+        });
         voiceNoteRecorder.start();
         setVoiceNoteStatus("Recording voice note. Tap Stop Recording when you are done.");
         updateVoiceNoteButtons();
@@ -2466,7 +2482,9 @@
         return;
       }
       if (!watchedEventStates.has(watchedId)) {
-        watchedEventStates.set(watchedId, { event_id: watchedId });
+        watchedEventStates.set(watchedId, {
+          event_id: watchedId
+        });
       }
       ensureStatusStreamConnection();
     }
