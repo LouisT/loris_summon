@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voice note</title>
+  <style>
+    :root {
+      --bg: #0b0a10;
+      --panel: rgba(22, 19, 31, 0.96);
+      --text: #f7f4fb;
+      --muted: #b9adc8;
+      --accent: #ff1694;
+      --accent-soft: #ff8acb;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100svh;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      overflow-y: auto;
+      padding:
+        max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+      background:
+        radial-gradient(circle at top, rgba(255, 22, 148, 0.24), transparent 32%),
+        radial-gradient(circle at bottom, rgba(255, 22, 148, 0.14), transparent 28%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    }
+
+    main {
+      width: 100%;
+      max-width: 520px;
+      margin: 0 auto;
+      padding: 28px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 22, 148, 0.22);
+      background: var(--panel);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(1.7rem, 5vw, 2.3rem);
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    audio {
+      width: 100%;
+      display: block;
+      margin-bottom: 16px;
+      accent-color: var(--accent);
+    }
+
+    a {
+      color: var(--accent-soft);
+      font-weight: 700;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        display: block;
+        padding:
+          max(12px, env(safe-area-inset-top)) max(12px, env(safe-area-inset-right)) max(18px, env(safe-area-inset-bottom)) max(12px, env(safe-area-inset-left));
+      }
+
+      main {
+        padding: 22px 18px 18px;
+        border-radius: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Voice note</h1>
+    <p>__VOICE_NOTE_FILENAME__</p>
+    <audio controls autoplay preload="metadata" src="__VOICE_NOTE_AUDIO_URL__"></audio>
+    <a href="__VOICE_NOTE_AUDIO_URL__" download>Download audio</a>
+  </main>
+</body>
+</html>

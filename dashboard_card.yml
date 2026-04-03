@@ -1,0 +1,25 @@
+type: entities
+title: Lori's Summon
+entities:
+  - entity: sensor.lori_s_summon_last_summon
+    name: Last Summon
+  - entity: sensor.lori_s_summon_saved_summons
+    name: Saved Summons
+  - entity: button.lori_s_summon_acknowledge
+    name: Acknowledge All
+  - entity: button.lori_s_summon_test_actions
+    name: Test Summon
+  - type: button
+    name: Purge Saved Summons
+    icon: mdi:trash-can-outline
+    action_name: Purge
+    tap_action:
+      action: perform-action
+      perform_action: button.press
+      target:
+        entity_id: button.lori_s_summon_purge_saved_summons
+      confirmation:
+        title: Purge Saved Summons?
+        text: This will delete all saved summons, voice notes, and images.
+        confirm_text: Purge
+        dismiss_text: Cancel

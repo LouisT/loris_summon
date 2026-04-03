@@ -1,0 +1,81 @@
+{
+    "config": {
+        "abort": {
+            "single_instance_allowed": "Only one Lori's Summon entry can be configured."
+        },
+        "error": {
+            "api_token_required": "API token is required.",
+            "pushover_app_token_required": "Pushover app token is required.",
+            "pushover_user_key_required": "Pushover user key is required.",
+            "web_auth_incomplete": "Web username and web password must either both be set or both be empty."
+        },
+        "step": {
+            "user": {
+                "title": "Lori's Summon",
+                "description": "Configure notifications, light flashing, and the external API endpoints.",
+                "data": {
+                    "name": "Name",
+                    "pushover_app_token": "Pushover app token",
+                    "pushover_user_key": "Pushover user key",
+                    "pushover_device": "Pushover device",
+                    "pushover_sound_lowest": "Pushover sound for lowest",
+                    "pushover_sound_low": "Pushover sound for low",
+                    "pushover_sound_default": "Pushover sound for normal",
+                    "pushover_sound_normal": "Pushover sound for high",
+                    "pushover_sound_emergency": "Pushover sound for emergency",
+                    "web_username": "Web username",
+                    "web_password": "Web password",
+                    "alert_title": "Notification title",
+                    "message_template": "Message template",
+                    "api_token": "External API token",
+                    "cooldown_seconds": "Cooldown seconds",
+                    "rate_limit_window_seconds": "Rate limit window seconds",
+                    "max_triggers_per_window": "Max triggers per window",
+                    "history_size": "History size",
+                    "light_target": "Light target",
+                    "trigger_lights": "Flash lights",
+                    "light_flash_count": "Flash count",
+                    "light_flash_brightness": "Flash brightness",
+                    "light_flash_duration": "Flash duration",
+                    "light_flash_color": "Flash color",
+                    "enable_web": "Enable web page",
+                    "debug_logging": "Debug logging"
+                }
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Lori's Summon",
+                "data": {
+                    "pushover_app_token": "Pushover app token",
+                    "pushover_user_key": "Pushover user key",
+                    "pushover_device": "Pushover device",
+                    "pushover_sound_lowest": "Pushover sound for lowest",
+                    "pushover_sound_low": "Pushover sound for low",
+                    "pushover_sound_default": "Pushover sound for normal",
+                    "pushover_sound_normal": "Pushover sound for high",
+                    "pushover_sound_emergency": "Pushover sound for emergency",
+                    "web_username": "Web username",
+                    "web_password": "Web password",
+                    "alert_title": "Notification title",
+                    "message_template": "Message template",
+                    "api_token": "External API token",
+                    "cooldown_seconds": "Cooldown seconds",
+                    "rate_limit_window_seconds": "Rate limit window seconds",
+                    "max_triggers_per_window": "Max triggers per window",
+                    "history_size": "History size",
+                    "light_target": "Light target",
+                    "trigger_lights": "Flash lights",
+                    "light_flash_count": "Flash count",
+                    "light_flash_brightness": "Flash brightness",
+                    "light_flash_duration": "Flash duration",
+                    "light_flash_color": "Flash color",
+                    "enable_web": "Enable web page",
+                    "debug_logging": "Debug logging"
+                }
+            }
+        }
+    }
+}

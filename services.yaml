@@ -1,0 +1,56 @@
+trigger:
+  name: Trigger summon
+  description: Send a summon notification and optional light flash.
+  fields:
+    message:
+      name: Message
+      description: Optional text to include in the notification. Blank values use the default summon message.
+      example: Come upstairs please.
+      selector:
+        text:
+    priority:
+      name: Priority
+      description: Optional Pushover priority label. Supported values are lowest, low, normal, high, and emergency.
+      example: normal
+      selector:
+        select:
+          options:
+            - lowest
+            - low
+            - normal
+            - high
+            - emergency
+    source:
+      name: Source
+      description: Optional source label included in the notification template.
+      example: web
+      selector:
+        text:
+
+test_actions:
+  name: Test actions
+  description: Run the configured notification and light flash actions with a test message.
+  fields:
+    message:
+      name: Message
+      description: Optional override for the test message.
+      example: Test summon
+      selector:
+        text:
+
+acknowledge:
+  name: Acknowledge notifications
+  description: Acknowledge all outstanding tracked notifications.
+  fields:
+    acknowledged_by:
+      name: Acknowledged by
+      description: Optional label for who acknowledged the notifications.
+      example: Lori
+      selector:
+        text:
+    source:
+      name: Source
+      description: Optional acknowledgment source.
+      example: web
+      selector:
+        text:

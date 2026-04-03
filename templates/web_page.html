@@ -1,0 +1,2920 @@
+<!DOCTYPE html>
+<html lang="en" style="background:#0b0a10;">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#0b0a10">
+  <title>Lori's Summon</title>
+  <style>
+    :root {
+      --bg: #0b0a10;
+      --panel: #16131f;
+      --accent-rgb: 255, 22, 148;
+      --panel-edge: rgba(var(--accent-rgb), 0.28);
+      --accent: #ff1694;
+      --accent-strong: #ff4cb0;
+      --accent-soft: #ff8acb;
+      --accent-pale: #ffc0e4;
+      --text: #f7f4fb;
+      --muted: #b9adc8;
+      --field: #110f18;
+      --toast-text: #fff1fa;
+      --toast-soft: rgba(var(--accent-rgb), 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      min-height: 100%;
+      background: #0b0a10;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    body {
+      min-height: 100svh;
+      min-height: 100vh;
+      min-height: 100dvh;
+      margin: 0;
+      background:
+        radial-gradient(circle at top, rgba(var(--accent-rgb), 0.24), transparent 36%),
+        radial-gradient(circle at bottom, rgba(var(--accent-rgb), 0.14), transparent 28%),
+        var(--bg);
+      color: var(--text);
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    body.loading .page-shell,
+    body.loading #login-panel,
+    body.loading #app-panel,
+    body.loading #logout-button {
+      visibility: hidden;
+    }
+
+    .page-shell {
+      min-height: 100svh;
+      min-height: 100vh;
+      min-height: 100dvh;
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      overflow: visible;
+      padding:
+        clamp(24px, 7vh, 64px) 24px max(24px, env(safe-area-inset-bottom));
+    }
+
+    .card {
+      width: min(100%, 640px);
+      max-height: none;
+      overflow: visible;
+      padding: 32px;
+      border-radius: 28px;
+      border: 1px solid var(--panel-edge);
+      background: linear-gradient(180deg, rgba(31, 24, 42, 0.96), rgba(17, 14, 25, 0.96));
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.52);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .hero {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .hero-brand {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .hero-icon {
+      width: 82px;
+      height: 82px;
+      border-radius: 24px;
+      object-fit: contain;
+      flex: 0 0 auto;
+      border: none;
+      box-shadow:
+        0 14px 28px rgba(255, 218, 238, 0.12),
+        0 0 22px rgba(var(--accent-rgb), 0.14);
+      background: rgba(255, 20, 147, 0.5);
+    }
+
+    .hero-copy {
+      min-width: 0;
+    }
+
+    .toolbar-button {
+      width: auto;
+      min-width: 112px;
+      margin: 0;
+      padding: 12px 16px;
+      border: 1px solid rgba(var(--accent-rgb), 0.26);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--accent-pale);
+      box-shadow: none;
+      font-size: 0.88rem;
+      letter-spacing: 0.05em;
+    }
+
+    .toolbar-button:hover {
+      background: rgba(var(--accent-rgb), 0.12);
+      filter: none;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2rem, 4vw, 2.75rem);
+      letter-spacing: 0.03em;
+    }
+
+    .subtitle {
+      margin: 8px 0 0;
+      color: var(--accent-strong);
+      font-size: 1.05rem;
+      font-weight: 700;
+    }
+
+    .toast-stack {
+      position: fixed;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      z-index: 40;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      width: min(460px, calc(100vw - 32px));
+      pointer-events: none;
+      align-items: center;
+    }
+
+    .toast {
+      width: 100%;
+      padding: 14px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(var(--accent-rgb), 0.35);
+      background: rgba(20, 15, 28, 0.92);
+      color: var(--toast-text);
+      font-weight: 700;
+      line-height: 1.4;
+      box-shadow: 0 18px 38px rgba(0, 0, 0, 0.36);
+      opacity: 0;
+      transform: translateY(12px) scale(0.98);
+      transition: opacity 160ms ease, transform 160ms ease;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+
+    .toast.success {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #220613;
+      border-color: rgba(255, 241, 250, 0.42);
+    }
+
+    .toast.error {
+      background: linear-gradient(180deg, rgba(56, 19, 42, 0.98), rgba(31, 14, 24, 0.98));
+      color: #ffd9ee;
+      border-color: rgba(var(--accent-rgb), 0.35);
+    }
+
+    .confetti-layer {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      overflow: hidden;
+      z-index: 30;
+    }
+
+    .confetti-piece {
+      position: absolute;
+      width: var(--size);
+      height: var(--size);
+      opacity: 0;
+      perspective: 48px;
+      transform-origin: center;
+      will-change: transform, opacity;
+    }
+
+    .confetti-heart {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      font-size: var(--size);
+      line-height: 1;
+      color: var(--heart-color);
+      text-shadow: 0 8px 20px rgba(var(--accent-rgb), 0.22);
+      backface-visibility: hidden;
+      transform-origin: center;
+      will-change: transform;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      color: var(--muted);
+      font-size: 0.92rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .field-group+.field-group {
+      margin-top: 18px;
+    }
+
+    .auth-note {
+      margin: 0 0 18px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .textarea-shell {
+      position: relative;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 210px;
+      padding: 18px 58px 18px 18px;
+      border: 1px solid rgba(var(--accent-rgb), 0.3);
+      border-radius: 18px;
+      background: var(--field);
+      color: var(--text);
+      resize: vertical;
+      font: inherit;
+      font-size: 16px;
+      line-height: 1.5;
+      outline: none;
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.06);
+    }
+
+    .placeholder-refresh {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      width: 34px;
+      height: 34px;
+      margin: 0;
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--accent-rgb), 0.24);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--accent-pale);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
+      z-index: 2;
+    }
+
+    .placeholder-refresh:hover {
+      filter: none;
+      background: rgba(var(--accent-rgb), 0.14);
+      color: #fff5fb;
+    }
+
+    .placeholder-refresh:disabled {
+      opacity: 0.72;
+      cursor: pointer;
+    }
+
+    .placeholder-refresh svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+      align-items: start;
+    }
+
+    .select-shell {
+      position: relative;
+    }
+
+    .select-shell::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: 16px;
+      width: 10px;
+      height: 10px;
+      margin-top: -7px;
+      border-right: 2px solid rgba(255, 255, 255, 0.75);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.75);
+      transform: rotate(45deg);
+      pointer-events: none;
+    }
+
+    input[type="text"],
+    input[type="search"],
+    input[type="password"],
+    select,
+    input[type="file"] {
+      width: 100%;
+      border: 1px solid rgba(var(--accent-rgb), 0.3);
+      border-radius: 18px;
+      background: var(--field);
+      color: var(--text);
+      font: inherit;
+      font-size: 15px;
+      outline: none;
+      box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.06);
+    }
+
+    input[type="text"],
+    input[type="search"],
+    input[type="password"],
+    select {
+      min-height: 56px;
+      padding: 0 16px;
+    }
+
+    select {
+      padding-right: 44px;
+      appearance: none;
+      cursor: pointer;
+    }
+
+    input[type="file"] {
+      min-height: 56px;
+      padding: 8px 10px;
+      cursor: pointer;
+    }
+
+    input[type="text"]:focus,
+    input[type="search"]:focus,
+    input[type="password"]:focus,
+    select:focus,
+    input[type="file"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(var(--accent-rgb), 0.18);
+    }
+
+    input[type="file"]::file-selector-button {
+      margin-right: 14px;
+      padding: 10px 14px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.92), rgba(255, 76, 176, 0.92));
+      color: #220613;
+      font: inherit;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 10px 24px rgba(var(--accent-rgb), 0.2);
+    }
+
+    .attachment-status {
+      min-height: 1.35em;
+      margin: 10px 2px 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .voice-note-shell {
+      padding: 16px;
+      border: 1px solid rgba(var(--accent-rgb), 0.22);
+      border-radius: 18px;
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .voice-note-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    button.secondary-button {
+      width: auto;
+      margin-top: 0;
+      padding: 12px 16px;
+      border: 1px solid rgba(var(--accent-rgb), 0.28);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--accent-pale);
+      box-shadow: none;
+      font-size: 0.88rem;
+      letter-spacing: 0.05em;
+    }
+
+    button.secondary-button:hover {
+      background: rgba(var(--accent-rgb), 0.12);
+      filter: none;
+    }
+
+    button.secondary-button.recording {
+      background: rgba(var(--accent-rgb), 0.18);
+      color: #fff5fb;
+    }
+
+    .voice-note-status {
+      min-height: 1.35em;
+      margin: 12px 2px 0;
+      color: var(--muted);
+      font-size: 0.92rem;
+      line-height: 1.45;
+    }
+
+    .voice-note-preview {
+      width: 100%;
+      margin-top: 14px;
+      accent-color: var(--accent);
+    }
+
+    .app-tabs {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .tab-button {
+      width: auto;
+      margin-top: 0;
+      padding: 12px 16px;
+      border: 1px solid rgba(var(--accent-rgb), 0.24);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      box-shadow: none;
+      font-size: 0.88rem;
+      letter-spacing: 0.05em;
+    }
+
+    .tab-button.active {
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #1d0411;
+      border-color: transparent;
+      box-shadow: 0 12px 32px rgba(var(--accent-rgb), 0.2);
+    }
+
+    .tab-panel {
+      min-height: 0;
+    }
+
+    .voice-notes-shell {
+      max-height: min(52vh, 560px);
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .voice-notes-toolbar {
+      margin-bottom: 16px;
+    }
+
+    .voice-notes-toolbar-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.8fr) repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: end;
+    }
+
+    .voice-notes-status {
+      min-height: 1.4em;
+      margin: 0 0 14px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .voice-notes-status:empty {
+      display: none;
+    }
+
+    .voice-notes-list {
+      display: grid;
+      gap: 14px;
+    }
+
+    .voice-note-card {
+      border-radius: 18px;
+      border: 1px solid rgba(var(--accent-rgb), 0.2);
+      background: rgba(255, 255, 255, 0.03);
+      overflow: hidden;
+    }
+
+    .voice-note-card-summary {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      align-items: stretch;
+      padding: 14px 16px;
+      cursor: pointer;
+      list-style: none;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .voice-note-card-summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .voice-note-card-summary-main {
+      min-width: 0;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .voice-note-card-summary-top {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .voice-note-card-time-row {
+      display: inline-flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .voice-note-card-time {
+      color: var(--muted);
+      font-size: 0.84rem;
+      line-height: 1.4;
+      white-space: nowrap;
+    }
+
+    .voice-note-card-time-separator {
+      width: 4px;
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.34);
+      flex: 0 0 auto;
+    }
+
+    .voice-note-card-time-label {
+      color: var(--accent-soft);
+      font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .voice-note-card-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .voice-note-card-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 22px;
+      padding: 0 9px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--accent-rgb), 0.22);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--accent-pale);
+      font-size: 0.73rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      white-space: nowrap;
+    }
+
+    .voice-note-card-badge.priority-lowest {
+      color: #d7cce6;
+    }
+
+    .voice-note-card-badge.priority-low {
+      color: #b9d6ff;
+    }
+
+    .voice-note-card-badge.priority-normal {
+      color: #ffe59e;
+    }
+
+    .voice-note-card-badge.priority-high {
+      color: #ffc6df;
+    }
+
+    .voice-note-card-badge.priority-emergency,
+    .voice-note-card-badge.attention {
+      border-color: rgba(255, 94, 126, 0.34);
+      color: #ffd0da;
+      background: rgba(255, 94, 126, 0.08);
+    }
+
+    .voice-note-card-badge.acked-pill {
+      color: #c9ffd8;
+      border-color: rgba(94, 255, 154, 0.26);
+      background: rgba(94, 255, 154, 0.08);
+    }
+
+    .voice-note-card-badge.unacked-pill {
+      color: #ffe0aa;
+      border-color: rgba(255, 190, 94, 0.28);
+      background: rgba(255, 190, 94, 0.08);
+    }
+
+    .voice-note-card-preview {
+      display: block;
+      margin-top: 9px;
+      color: var(--accent-pale);
+      font-size: 0.95rem;
+      line-height: 1.5;
+      white-space: normal;
+      word-break: break-word;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .voice-note-card-chevron {
+      width: 12px;
+      height: 12px;
+      margin-top: 8px;
+      flex: 0 0 auto;
+      border-right: 2px solid rgba(255, 255, 255, 0.5);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.5);
+      transform: rotate(45deg);
+      transition: transform 140ms ease, border-color 140ms ease;
+    }
+
+    .voice-note-card[open] .voice-note-card-chevron {
+      transform: rotate(225deg);
+      border-color: rgba(var(--accent-rgb), 0.8);
+    }
+
+    .voice-note-card[open] .voice-note-card-summary {
+      background: rgba(var(--accent-rgb), 0.04);
+    }
+
+    .voice-note-card[open] .voice-note-card-preview {
+      overflow: visible;
+      display: block;
+      -webkit-line-clamp: unset;
+    }
+
+    .voice-note-card-body {
+      display: grid;
+      gap: 10px;
+      padding: 14px 16px 16px;
+      border-top: 1px solid rgba(var(--accent-rgb), 0.12);
+    }
+
+    .voice-note-card-actions {
+      display: grid;
+      grid-template-columns: repeat(var(--voice-note-action-count, 4), minmax(0, 1fr));
+      gap: 6px;
+    }
+
+    .voice-note-card-actions a.secondary-button,
+    .voice-note-card-actions button.secondary-button {
+      width: 100%;
+      text-decoration: none;
+      min-height: 38px;
+      padding: 8px 6px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      line-height: 1.15;
+      text-transform: none;
+    }
+
+    .voice-note-card-actions button.secondary-button {
+      min-width: 0;
+    }
+
+    .voice-note-card-actions .destructive {
+      border-color: rgba(255, 94, 126, 0.32);
+      color: #ffd0da;
+    }
+
+    .voice-note-inline-player {
+      width: 100%;
+      accent-color: var(--accent);
+    }
+
+    .summon-attachment-preview {
+      width: 100%;
+      display: block;
+      border-radius: 14px;
+      border: 1px solid rgba(var(--accent-rgb), 0.18);
+      background: rgba(255, 255, 255, 0.04);
+      object-fit: cover;
+      max-height: 240px;
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.22);
+    }
+
+    .summon-attachment-link {
+      display: block;
+      border-radius: 14px;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .voice-notes-sentinel {
+      height: 1px;
+    }
+
+    .control-grid .field-group {
+      margin-top: 0;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 20px;
+      padding: 16px 18px;
+      border: 0;
+      border-radius: 999px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      color: #1d0411;
+      font: inherit;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      box-shadow: 0 18px 40px rgba(var(--accent-rgb), 0.28);
+      transition: filter 140ms ease, transform 140ms ease, opacity 140ms ease;
+    }
+
+    button:hover {
+      filter: brightness(1.06);
+    }
+
+    button:disabled {
+      opacity: 0.72;
+      cursor: wait;
+      transform: translateY(0);
+    }
+
+    @media (max-width: 640px) {
+      .page-shell {
+        padding:
+          max(6px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(22px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left));
+      }
+
+      .card {
+        width: 100%;
+        padding: 22px 18px 18px;
+        border-radius: 22px;
+        margin-top: 0;
+        margin-bottom: max(18px, env(safe-area-inset-bottom));
+      }
+
+      .hero {
+        gap: 12px;
+        margin-bottom: 20px;
+        align-items: flex-start;
+      }
+
+      .hero-icon {
+        width: 66px;
+        height: 66px;
+        border-radius: 18px;
+        padding: 7px;
+      }
+
+      h1 {
+        font-size: clamp(1.75rem, 8vw, 2.2rem);
+      }
+
+      .subtitle {
+        margin-top: 6px;
+        font-size: 0.98rem;
+      }
+
+      .toolbar-button {
+        min-width: 0;
+        padding: 11px 14px;
+        font-size: 0.8rem;
+      }
+
+      label {
+        font-size: 0.84rem;
+      }
+
+      .toast-stack {
+        bottom: max(16px, env(safe-area-inset-bottom));
+        width: calc(100vw - 20px);
+      }
+
+      textarea {
+        min-height: 170px;
+        padding: 16px 54px 16px 16px;
+      }
+
+      input[type="text"],
+      input[type="search"],
+      input[type="password"],
+      select {
+        min-height: 48px;
+        padding: 0 14px;
+      }
+
+      input[type="file"] {
+        min-height: 50px;
+        padding: 7px 8px;
+      }
+
+      input[type="file"]::file-selector-button {
+        padding: 9px 12px;
+        font-size: 0.78rem;
+      }
+
+      .control-grid {
+        grid-template-columns: 1fr;
+        gap: 14px;
+        margin-top: 16px;
+      }
+
+      .placeholder-refresh {
+        top: 10px;
+        right: 10px;
+        width: 32px;
+        height: 32px;
+      }
+
+      .voice-note-actions {
+        flex-direction: column;
+      }
+
+      button.secondary-button {
+        width: 100%;
+      }
+
+      .app-tabs {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .tab-button {
+        width: 100%;
+      }
+
+      .voice-notes-shell {
+        max-height: min(58vh, 520px);
+      }
+
+      .voice-notes-toolbar {
+        margin-bottom: 12px;
+      }
+
+      .voice-notes-toolbar-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .voice-notes-toolbar-grid .field-group:first-child {
+        grid-column: 1 / -1;
+      }
+
+      .voice-note-card-summary {
+        gap: 10px;
+        padding: 12px 13px;
+      }
+
+      .voice-note-card-summary-top {
+        gap: 8px;
+      }
+
+      .voice-note-card-time {
+        white-space: normal;
+      }
+
+      .voice-note-card-preview {
+        font-size: 0.91rem;
+      }
+
+      .voice-note-card-body {
+        gap: 10px;
+        padding: 12px 13px 13px;
+      }
+
+      .voice-note-card-actions {
+        gap: 5px;
+      }
+
+      .voice-note-card-actions button.secondary-button {
+        min-height: 36px;
+        padding: 7px 4px;
+        font-size: 0.66rem;
+        letter-spacing: 0.01em;
+      }
+
+      .summon-attachment-preview {
+        max-height: 180px;
+      }
+
+      button {
+        margin-top: 16px;
+        padding: 15px 18px;
+      }
+    }
+  </style>
+</head>
+
+<body class="loading">
+  <noscript>
+    <style>
+      body.loading .page-shell,
+      body.loading #login-panel,
+      body.loading #app-panel,
+      body.loading #logout-button {
+        visibility: visible;
+      }
+
+      body.loading .page-shell {
+        opacity: 1;
+        transform: none;
+      }
+    </style>
+  </noscript>
+  <div class="toast-stack" id="toast-stack" aria-live="polite" aria-atomic="true"></div>
+  <div class="confetti-layer" id="confetti-layer" aria-hidden="true"></div>
+  <div class="page-shell">
+    <main class="card">
+      <header class="hero">
+        <div class="hero-brand">
+          <img class="hero-icon" src="__ICON_PATH__" alt="Lori's Summon icon">
+          <div class="hero-copy">
+            <h1>Lori's Summon</h1>
+            <p class="subtitle">Summon your sub!</p>
+          </div>
+        </div>
+        <button class="toolbar-button hidden" id="logout-button" type="button">Log Out</button>
+      </header>
+      <section id="login-panel">
+        <form id="login-form" novalidate>
+          <p class="auth-note" id="login-status">Sign in to open the summon page.</p>
+          <div class="field-group">
+            <label for="login-username">Username</label>
+            <input id="login-username" name="username" type="text" autocomplete="username" required />
+          </div>
+          <div class="field-group">
+            <label for="login-password">Password</label>
+            <input id="login-password" name="password" type="password" autocomplete="current-password" required />
+          </div>
+          <div class="field-group">
+            <button id="login-button" type="submit">Sign In</button>
+          </div>
+        </form>
+      </section>
+      <section class="hidden" id="app-panel">
+        <div class="app-tabs" role="tablist" aria-label="Summon tabs">
+          <button class="tab-button active" id="tab-summon" type="button" data-tab="summon" role="tab" aria-selected="true" aria-controls="summon-panel">Summon</button>
+          <button class="tab-button" id="tab-voice-notes" type="button" data-tab="voice-notes" role="tab" aria-selected="false" aria-controls="voice-notes-panel">Sent Summons</button>
+        </div>
+        <section class="tab-panel" id="summon-panel" role="tabpanel" aria-labelledby="tab-summon">
+          <form id="summon-form" method="post" enctype="multipart/form-data">
+            <div class="field-group">
+              <label for="message">Command</label>
+              <div class="textarea-shell">
+                <textarea id="message" name="message" placeholder="__PLACEHOLDER_TEXT__">__ESCAPED_MESSAGE__</textarea>
+                <button class="placeholder-refresh" id="placeholder-refresh" type="button" aria-label="Clear command and show a new prompt" title="New prompt">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                    <path fill="currentColor" d="M12 5a7 7 0 0 1 6.1 3.55V6.75a1 1 0 1 1 2 0V12a1 1 0 0 1-1 1h-5.25a1 1 0 1 1 0-2h3.15A5 5 0 1 0 17 16.9a1 1 0 0 1 1.42 1.4A7 7 0 1 1 12 5Z" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="control-grid">
+              <div class="field-group">
+                <label for="priority">Priority (optional)</label>
+                <div class="select-shell">
+                  <select id="priority" name="priority">
+                    __PRIORITY_OPTIONS__
+                  </select>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="attachment">IMAGE (optional)</label>
+                <input id="attachment" name="attachment" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,image/*" />
+                <p class="attachment-status" id="attachment-status">Max 25MB; compressed to 5MB.</p>
+              </div>
+            </div>
+            <div class="field-group">
+              <label for="voice-note-record">Voice note (optional)</label>
+              <div class="voice-note-shell">
+                <div class="voice-note-actions">
+                  <button class="secondary-button" id="voice-note-record" type="button">Record Voice Note</button>
+                  <button class="secondary-button hidden" id="voice-note-stop" type="button">Stop Recording</button>
+                  <button class="secondary-button hidden" id="voice-note-clear" type="button">Clear Voice Note</button>
+                </div>
+                <p class="voice-note-status" id="voice-note-status">Record a voice note to include a playback link in the notification.</p>
+                <audio class="voice-note-preview hidden" id="voice-note-preview" controls preload="metadata"></audio>
+              </div>
+            </div>
+            <button id="summon-button" type="submit">Summon</button>
+          </form>
+        </section>
+        <section class="tab-panel hidden" id="voice-notes-panel" role="tabpanel" aria-labelledby="tab-voice-notes">
+          <div class="voice-notes-toolbar">
+            <div class="voice-notes-toolbar-grid">
+              <div class="field-group">
+                <label for="voice-notes-search">Search Summons</label>
+                <input id="voice-notes-search" type="search" placeholder="Search text, source, or filenames" />
+              </div>
+              <div class="field-group">
+                <label for="voice-notes-sort-by">Sort By</label>
+                <div class="select-shell">
+                  <select id="voice-notes-sort-by">
+                    <option value="date">Date</option>
+                    <option value="priority">Priority</option>
+                  </select>
+                </div>
+              </div>
+              <div class="field-group">
+                <label for="voice-notes-sort-order">Order</label>
+                <div class="select-shell">
+                  <select id="voice-notes-sort-order">
+                    <option value="desc">Descending</option>
+                    <option value="asc">Ascending</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="voice-notes-shell" id="voice-notes-shell">
+            <p class="voice-notes-status" id="voice-notes-status">Open this tab to load sent summons.</p>
+            <div class="voice-notes-list" id="voice-notes-list"></div>
+            <div class="voice-notes-sentinel hidden" id="voice-notes-sentinel" aria-hidden="true"></div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+  <script>
+    const toastStack = document.getElementById("toast-stack");
+    const confettiLayer = document.getElementById("confetti-layer");
+    const loginPanel = document.getElementById("login-panel");
+    const appPanel = document.getElementById("app-panel");
+    const loginForm = document.getElementById("login-form");
+    const loginStatus = document.getElementById("login-status");
+    const loginUsernameInput = document.getElementById("login-username");
+    const loginPasswordInput = document.getElementById("login-password");
+    const loginButton = document.getElementById("login-button");
+    const logoutButton = document.getElementById("logout-button");
+    const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
+    const summonPanel = document.getElementById("summon-panel");
+    const voiceNotesPanel = document.getElementById("voice-notes-panel");
+    const voiceNotesSearchInput = document.getElementById("voice-notes-search");
+    const voiceNotesSortBySelect = document.getElementById("voice-notes-sort-by");
+    const voiceNotesSortOrderSelect = document.getElementById("voice-notes-sort-order");
+    const voiceNotesShell = document.getElementById("voice-notes-shell");
+    const voiceNotesList = document.getElementById("voice-notes-list");
+    const voiceNotesStatus = document.getElementById("voice-notes-status");
+    const voiceNotesSentinel = document.getElementById("voice-notes-sentinel");
+    const form = document.getElementById("summon-form");
+    const textarea = document.getElementById("message");
+    const prioritySelect = document.getElementById("priority");
+    const attachmentInput = document.getElementById("attachment");
+    const attachmentStatus = document.getElementById("attachment-status");
+    const voiceNoteRecordButton = document.getElementById("voice-note-record");
+    const voiceNoteStopButton = document.getElementById("voice-note-stop");
+    const voiceNoteClearButton = document.getElementById("voice-note-clear");
+    const voiceNoteStatus = document.getElementById("voice-note-status");
+    const voiceNotePreview = document.getElementById("voice-note-preview");
+    const placeholderRefreshButton = document.getElementById("placeholder-refresh");
+    const loginPath = "__WEB_LOGIN_PATH__";
+    const refreshPath = "__WEB_REFRESH_PATH__";
+    const statusPath = "__STATUS_PATH__";
+    const statusStreamPath = "__STATUS_STREAM_PATH__";
+    const voiceNotesPath = "__VOICE_NOTES_PATH__";
+    const tokenRefreshWindowSeconds = Number("__TOKEN_REFRESH_WINDOW_SECONDS__") || 0;
+    const authStorageKey = "loris_summon_web_jwt";
+    const placeholderMessages = __PLACEHOLDER_MESSAGES__;
+    const submitButton = document.getElementById("summon-button");
+    const successMessages = __SUCCESS_MESSAGES__;
+    const errorMessages = __ERROR_MESSAGES__;
+    const initialToast = __INITIAL_TOAST__;
+    const defaultLoginStatus = "Sign in to open the summon page.";
+    let authToken = "";
+    let authExpiresAt = 0;
+    let authRefreshTimer = 0;
+    let authRefreshInFlight = null;
+    let submitInFlight = false;
+    let submitAfterVoiceNoteStop = false;
+    let statusBootstrapComplete = false;
+    let statusReconnectTimer = 0;
+    let statusEventSource = null;
+    const activeConfetti = [];
+    let confettiFrameId = 0;
+    let confettiEmitTimer = 0;
+    let confettiPrevTimestamp = 0;
+    const watchedEventStates = new Map();
+    const confettiColors = ["#ff1694", "#ff2a9f", "#ff4cb0", "#ff72c2", "#ff9ad5", "#ffc0e4"];
+    const confettiEmitWindowMs = 6000;
+    const confettiEccentricity = 10;
+    const confettiDeviation = 92;
+    const defaultAttachmentStatus = "Max 25MB; compressed to 5MB.";
+    const defaultVoiceNoteStatus = "Record a voice note to include a playback link in the notification.";
+    const supportedAttachmentExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
+    const attachmentProcessMaxBytes = 25 * 1024 * 1024;
+    const voiceNoteMaxBytes = 75 * 1024 * 1024;
+    const voiceNoteMimeCandidates = [
+      "audio/webm;codecs=opus",
+      "audio/webm",
+      "audio/mp4;codecs=mp4a.40.2",
+      "audio/mp4",
+      "audio/ogg;codecs=opus",
+      "audio/ogg"
+    ];
+    let voiceNoteBlob = null;
+    let voiceNoteMimeType = "";
+    let voiceNoteObjectUrl = "";
+    let voiceNoteRecorder = null;
+    let voiceNoteStream = null;
+    let voiceNoteChunks = [];
+    let voiceNoteStartedAt = 0;
+    let voiceNoteDurationSeconds = 0;
+    let activeTab = "summon";
+    let voiceNotesLoaded = false;
+    let voiceNotesLoading = false;
+    let voiceNotesHasMore = false;
+    let voiceNotesNextOffset = 0;
+    let voiceNotesObserver = null;
+    let voiceNotesRequestId = 0;
+    let voiceNotesSearchTimer = 0;
+    const voiceNoteEventIds = new Set();
+
+    // Guard attachment status updates so UI polish cannot break submit success
+    function setAttachmentStatus(message) {
+      if (!attachmentStatus) {
+        return;
+      }
+      attachmentStatus.textContent = message;
+    }
+
+    function setVoiceNoteStatus(message) {
+      if (!voiceNoteStatus) {
+        return;
+      }
+      voiceNoteStatus.textContent = message || defaultVoiceNoteStatus;
+    }
+
+    if (initialToast) {
+      showToast(initialToast.text, initialToast.kind);
+    }
+    initializeVoiceNoteCapture();
+    initializeVoiceNotesPanel();
+    void initializeAuthState();
+
+    window.addEventListener("beforeunload", () => {
+      disconnectStatusStream();
+      clearAuthRefreshTimer();
+      cleanupVoiceNoteCapture();
+    });
+
+    loginForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (loginButton.disabled) {
+        return;
+      }
+
+      const username = String(loginUsernameInput.value || "").trim();
+      const password = String(loginPasswordInput.value || "");
+      if (!username || !password) {
+        setLoginStatus("Enter your username and password.");
+        return;
+      }
+
+      loginButton.disabled = true;
+      loginButton.textContent = "Signing In";
+      try {
+        const response = await fetch(loginPath, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ username, password })
+        });
+        const payload = await response.json().catch(() => null);
+        if (!response.ok || !payload || !payload.token) {
+          setLoginStatus(payload && payload.message_text ? payload.message_text : "Incorrect username or password.");
+          return;
+        }
+        storeAccessToken(payload.token);
+        loginForm.reset();
+        setLoginStatus(defaultLoginStatus);
+        showAppPanel();
+        await bootstrapStatusWatch();
+      } catch (error) {
+        console.error("Lori's Summon login failed", error);
+        setLoginStatus("Sign in failed. Try again.");
+      } finally {
+        loginButton.disabled = false;
+        loginButton.textContent = "Sign In";
+      }
+    });
+
+    logoutButton.addEventListener("click", () => {
+      handleLogout("Signed out.");
+    });
+
+    textarea.addEventListener("keydown", (event) => {
+      // Submit on Enter so the page feels faster while preserving Shift Enter for multi line commands
+      if (
+        event.key !== "Enter" ||
+        event.shiftKey ||
+        event.altKey ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.isComposing
+      ) {
+        return;
+      }
+      event.preventDefault();
+      form.requestSubmit();
+    });
+
+    placeholderRefreshButton.addEventListener("click", () => {
+      // Clear the current text and rotate to a different prompt without reloading the page
+      textarea.value = "";
+      textarea.placeholder = nextPlaceholder(textarea.placeholder);
+    });
+
+    attachmentInput.addEventListener("change", () => {
+      // Keep the chosen file visible because native file inputs are inconsistent across browsers
+      const file = attachmentInput.files && attachmentInput.files[0];
+      if (!file) {
+        setAttachmentStatus(defaultAttachmentStatus);
+        return;
+      }
+      if (!isImageAttachment(file)) {
+        attachmentInput.value = "";
+        setAttachmentStatus(defaultAttachmentStatus);
+        showToast(randomErrorMessage("attachment is not a supported image"), "error");
+        return;
+      }
+      if (file.size > attachmentProcessMaxBytes) {
+        attachmentInput.value = "";
+        setAttachmentStatus(defaultAttachmentStatus);
+        showToast(randomErrorMessage("attachment exceeds the 25 mb processing limit"), "error");
+        return;
+      }
+      setAttachmentStatus(`${file.name} selected`);
+    });
+
+    voiceNoteRecordButton.addEventListener("click", () => {
+      void startVoiceNoteRecording();
+    });
+
+    voiceNoteStopButton.addEventListener("click", () => {
+      stopVoiceNoteRecording();
+    });
+
+    voiceNoteClearButton.addEventListener("click", () => {
+      clearVoiceNoteCapture();
+      setVoiceNoteStatus(defaultVoiceNoteStatus);
+      updateVoiceNoteButtons();
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      if (submitInFlight || submitAfterVoiceNoteStop) {
+        return;
+      }
+
+      const attachment = attachmentInput.files && attachmentInput.files[0];
+      if (attachment && !isImageAttachment(attachment)) {
+        showToast(randomErrorMessage("attachment is not a supported image"), "error");
+        return;
+      }
+      if (attachment && attachment.size > attachmentProcessMaxBytes) {
+        showToast(randomErrorMessage("attachment exceeds the 25 mb processing limit"), "error");
+        return;
+      }
+      if (voiceNoteRecorder && voiceNoteRecorder.state !== "inactive") {
+        submitAfterVoiceNoteStop = true;
+        submitButton.disabled = true;
+        submitButton.textContent = "Finishing voice note";
+        updateVoiceNoteButtons();
+        if (!stopVoiceNoteRecording()) {
+          submitAfterVoiceNoteStop = false;
+          submitButton.disabled = false;
+          submitButton.textContent = "Summon";
+          updateVoiceNoteButtons();
+          form.requestSubmit();
+        }
+        return;
+      }
+
+      submitInFlight = true;
+      submitButton.disabled = true;
+      updateVoiceNoteButtons();
+      submitButton.textContent = "Summoning";
+
+      let payload = null;
+      let toastMessage = "";
+      let toastKind = "error";
+      let shouldLaunchConfetti = false;
+      try {
+        if (tokenNeedsRefresh()) {
+          const refreshed = await refreshAccessToken();
+          if (!refreshed && !authToken) {
+            return;
+          }
+        }
+        const body = new FormData();
+        body.set("message", textarea.value.trim());
+        body.set("priority", prioritySelect.value);
+        if (attachment) {
+          body.set("attachment", attachment, attachment.name);
+        }
+        if (voiceNoteBlob) {
+          body.set("voice_note", voiceNoteBlob, `voice-note${voiceNoteExtension(voiceNoteMimeType)}`);
+        }
+
+        const response = await fetch(window.location.pathname, {
+          method: "POST",
+          body,
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`,
+            "X-Requested-With": "fetch"
+          }
+        });
+
+        const rawText = await response.text();
+        try {
+          payload = rawText ? JSON.parse(rawText) : null;
+        } catch (error) {
+          payload = null;
+        }
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout("Session expired. Sign in again.");
+          return;
+        }
+        if (!payload) {
+          throw new Error(rawText || response.statusText || `HTTP ${response.status}`);
+        }
+        toastMessage =
+          payload.message_text ||
+          (payload.ok ?
+            randomSuccessMessage() :
+            randomErrorMessage(payload.disposition || response.statusText || "unknown"));
+        toastKind = payload.ok ? "success" : "error";
+        shouldLaunchConfetti = Boolean(payload.ok);
+      } catch (error) {
+        toastMessage = randomErrorMessage(error && error.message ? error.message : "request failed");
+        toastKind = "error";
+        shouldLaunchConfetti = false;
+      } finally {
+        submitInFlight = false;
+        submitButton.disabled = false;
+        updateVoiceNoteButtons();
+        submitButton.textContent = "Summon";
+      }
+
+      if (toastMessage) {
+        showToast(toastMessage, toastKind);
+      }
+
+      if (!shouldLaunchConfetti) {
+        return;
+      }
+
+      if (payload && payload.priority === "emergency" && payload.event_id) {
+        ensureWatchedEvent(payload.event_id);
+      }
+
+      textarea.value = "";
+      attachmentInput.value = "";
+      clearVoiceNoteCapture();
+      setVoiceNoteStatus(defaultVoiceNoteStatus);
+      updateVoiceNoteButtons();
+      setAttachmentStatus(defaultAttachmentStatus);
+      markVoiceNotesDirty();
+      try {
+        launchConfetti();
+      } catch (error) {
+        console.error("Lori's Summon confetti failed", error);
+      }
+    });
+
+    function setLoginStatus(message) {
+      if (!loginStatus) {
+        return;
+      }
+      loginStatus.textContent = message || defaultLoginStatus;
+    }
+
+    function setVoiceNotesStatus(message) {
+      if (!voiceNotesStatus) {
+        return;
+      }
+      voiceNotesStatus.textContent = message || "";
+    }
+
+    function initializeVoiceNotesPanel() {
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          void activateTab(String(button.dataset.tab || "summon"));
+        });
+      });
+
+      if (voiceNotesSearchInput) {
+        voiceNotesSearchInput.addEventListener("input", () => {
+          if (voiceNotesSearchTimer) {
+            window.clearTimeout(voiceNotesSearchTimer);
+          }
+          voiceNotesSearchTimer = window.setTimeout(() => {
+            voiceNotesSearchTimer = 0;
+            markVoiceNotesDirty();
+          }, 220);
+        });
+      }
+
+      if (voiceNotesSortBySelect) {
+        voiceNotesSortBySelect.addEventListener("change", () => {
+          markVoiceNotesDirty();
+        });
+      }
+
+      if (voiceNotesSortOrderSelect) {
+        voiceNotesSortOrderSelect.addEventListener("change", () => {
+          markVoiceNotesDirty();
+        });
+      }
+
+      if (voiceNotesList) {
+        voiceNotesList.addEventListener("click", (event) => {
+          void handleVoiceNoteListAction(event);
+        });
+      }
+
+      if (voiceNotesShell && voiceNotesSentinel && "IntersectionObserver" in window) {
+        voiceNotesObserver = new IntersectionObserver((entries) => {
+          if (!entries.some((entry) => entry.isIntersecting)) {
+            return;
+          }
+          if (activeTab !== "voice-notes" || !voiceNotesHasMore || voiceNotesLoading) {
+            return;
+          }
+          void loadVoiceNotesPage();
+        }, {
+          root: voiceNotesShell,
+          rootMargin: "240px 0px",
+        });
+        voiceNotesObserver.observe(voiceNotesSentinel);
+      } else if (voiceNotesShell) {
+        voiceNotesShell.addEventListener("scroll", () => {
+          if (
+            activeTab !== "voice-notes" ||
+            !voiceNotesHasMore ||
+            voiceNotesLoading ||
+            (voiceNotesShell.scrollHeight - voiceNotesShell.scrollTop - voiceNotesShell.clientHeight) > 240
+          ) {
+            return;
+          }
+          void loadVoiceNotesPage();
+        });
+      }
+
+      applyActiveTab();
+      setVoiceNotesStatus("Open this tab to load sent summons.");
+      updateVoiceNotesSentinel();
+    }
+
+    function currentVoiceNotesQuery() {
+      return {
+        search: String((voiceNotesSearchInput && voiceNotesSearchInput.value) || "").trim(),
+        sortBy: String((voiceNotesSortBySelect && voiceNotesSortBySelect.value) || "date").trim() || "date",
+        sortOrder: String((voiceNotesSortOrderSelect && voiceNotesSortOrderSelect.value) || "desc").trim() || "desc"
+      };
+    }
+
+    function applyActiveTab() {
+      tabButtons.forEach((button) => {
+        const isActive = String(button.dataset.tab || "") === activeTab;
+        button.classList.toggle("active", isActive);
+        button.setAttribute("aria-selected", isActive ? "true" : "false");
+      });
+      if (summonPanel) {
+        summonPanel.classList.toggle("hidden", activeTab !== "summon");
+      }
+      if (voiceNotesPanel) {
+        voiceNotesPanel.classList.toggle("hidden", activeTab !== "voice-notes");
+      }
+      updateVoiceNotesSentinel();
+    }
+
+    async function activateTab(tabName) {
+      activeTab = tabName === "voice-notes" ? "voice-notes" : "summon";
+      applyActiveTab();
+      if (activeTab === "voice-notes" && !voiceNotesLoaded) {
+        await loadVoiceNotesPage({ reset: true });
+      }
+    }
+
+    function resetVoiceNotesState() {
+      voiceNotesRequestId += 1;
+      voiceNotesLoaded = false;
+      voiceNotesLoading = false;
+      voiceNotesHasMore = false;
+      voiceNotesNextOffset = 0;
+      voiceNoteEventIds.clear();
+      if (voiceNotesSearchTimer) {
+        window.clearTimeout(voiceNotesSearchTimer);
+        voiceNotesSearchTimer = 0;
+      }
+      if (voiceNotesList) {
+        voiceNotesList.innerHTML = "";
+      }
+      setVoiceNotesStatus("Open this tab to load sent summons.");
+      updateVoiceNotesSentinel();
+    }
+
+    function markVoiceNotesDirty() {
+      voiceNotesLoaded = false;
+      voiceNotesHasMore = false;
+      voiceNotesNextOffset = 0;
+      voiceNoteEventIds.clear();
+      if (activeTab === "voice-notes") {
+        void loadVoiceNotesPage({ reset: true });
+      } else {
+        setVoiceNotesStatus("Sent summons updated. Open this tab to refresh.");
+      }
+    }
+
+    function updateVoiceNotesSentinel() {
+      if (!voiceNotesSentinel) {
+        return;
+      }
+      voiceNotesSentinel.classList.toggle(
+        "hidden",
+        !(activeTab === "voice-notes" && voiceNotesHasMore)
+      );
+    }
+
+    async function loadVoiceNotesPage({ reset = false } = {}) {
+      if (!voiceNotesList || !voiceNotesShell || voiceNotesLoading) {
+        return false;
+      }
+      if (!authToken) {
+        showLoginPanel();
+        return false;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return false;
+        }
+      }
+
+      const requestId = ++voiceNotesRequestId;
+      const offset = reset ? 0 : voiceNotesNextOffset;
+      const query = currentVoiceNotesQuery();
+      if (reset) {
+        voiceNotesList.innerHTML = "";
+        voiceNoteEventIds.clear();
+        voiceNotesNextOffset = 0;
+        voiceNotesHasMore = false;
+      }
+      voiceNotesLoading = true;
+      setVoiceNotesStatus(reset ? "Loading sent summons..." : "Loading more summons...");
+      updateVoiceNotesSentinel();
+
+      try {
+        const params = new URLSearchParams({
+          offset: String(offset),
+          limit: "12",
+          search: query.search,
+          sort_by: query.sortBy,
+          sort_order: query.sortOrder
+        });
+        const response = await fetch(`${voiceNotesPath}?${params.toString()}`, {
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        });
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return false;
+        }
+        if (!response.ok || !payload || !payload.ok) {
+          throw new Error((payload && payload.message_text) || `HTTP ${response.status}`);
+        }
+        if (requestId !== voiceNotesRequestId) {
+          return false;
+        }
+        const items = Array.isArray(payload.items) ? payload.items : [];
+        items.forEach((item) => {
+          if (!item || voiceNoteEventIds.has(String(item.event_id || ""))) {
+            return;
+          }
+          voiceNoteEventIds.add(String(item.event_id || ""));
+          voiceNotesList.appendChild(renderVoiceNoteCard(item));
+        });
+        voiceNotesLoaded = true;
+        voiceNotesHasMore = Boolean(payload.has_more);
+        voiceNotesNextOffset = Number.isInteger(payload.next_offset) ? payload.next_offset : (offset + items.length);
+        if (voiceNotesList.children.length === 0) {
+          setVoiceNotesStatus(query.search ? "No summons matched that search." : "No sent summons yet.");
+        } else if (voiceNotesHasMore) {
+          setVoiceNotesStatus("Scroll for more summons.");
+        } else {
+          setVoiceNotesStatus("");
+        }
+        updateVoiceNotesSentinel();
+        return true;
+      } catch (error) {
+        console.error("Lori's Summon summon history failed", error);
+        if (requestId === voiceNotesRequestId) {
+          setVoiceNotesStatus("Sent summons could not be loaded right now.");
+          updateVoiceNotesSentinel();
+        }
+        return false;
+      } finally {
+        if (requestId === voiceNotesRequestId) {
+          voiceNotesLoading = false;
+        }
+      }
+    }
+
+    function renderVoiceNoteCard(item) {
+      const card = document.createElement("details");
+      card.className = "voice-note-card";
+      card.dataset.eventId = String(item.event_id || "");
+      const hasAttachment = Boolean(item && item.has_attachment && item.attachment_url);
+      const hasVoiceNote = Boolean(item && item.has_voice_note && item.download_url);
+      const resent = isResentSummon(item);
+      const actionCount = 2 + (hasVoiceNote ? 2 : 0);
+      card.style.setProperty("--voice-note-action-count", String(actionCount));
+      const badges = [
+        `<span class="voice-note-card-badge ${escapeAttribute(priorityBadgeClass(item && item.priority ? item.priority : ""))}">${escapeHtml(priorityBadgeLabel(item && item.priority ? item.priority : ""))}</span>`,
+        `<span class="voice-note-card-badge ${item && item.acknowledged ? "acked-pill" : "unacked-pill"}">${item && item.acknowledged ? "Acked" : "Unacked"}</span>`,
+        item && item.disposition ? `<span class="voice-note-card-badge">${escapeHtml(dispositionBadgeLabel(item.disposition))}</span>` : "",
+        hasAttachment ? '<span class="voice-note-card-badge">Attachment</span>' : "",
+        hasVoiceNote ? '<span class="voice-note-card-badge">Voice note</span>' : "",
+        item && item.active ? '<span class="voice-note-card-badge attention">Active</span>' : ""
+      ].filter(Boolean).join("");
+      const voiceNoteActions = hasVoiceNote ? `
+          <button class="secondary-button" type="button" data-voice-note-action="play" data-event-id="${escapeAttribute(String(item.event_id || ""))}" data-audio-url="${escapeAttribute(String(item.download_url || "#"))}">Play</button>
+          <button class="secondary-button" type="button" data-voice-note-action="download" data-event-id="${escapeAttribute(String(item.event_id || ""))}" data-download-url="${escapeAttribute(String(item.download_url || "#"))}" data-filename="${escapeAttribute(String(item.voice_note_filename || "voice-note"))}">Download</button>
+      ` : "";
+      const attachmentPreview = hasAttachment ? `
+        <a
+          class="summon-attachment-link"
+          href="${escapeAttribute(String(item.attachment_url || "#"))}"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="${escapeAttribute(String(item.attachment_filename || "Open summon attachment"))}"
+        >
+          <img
+            class="summon-attachment-preview"
+            src="${escapeAttribute(String(item.attachment_url || "#"))}"
+            alt="${escapeAttribute(String(item.attachment_filename || "Summon attachment"))}"
+            loading="lazy"
+            decoding="async"
+          />
+        </a>
+      ` : "";
+      card.innerHTML = `
+        <summary class="voice-note-card-summary">
+          <span class="voice-note-card-summary-main">
+            <span class="voice-note-card-summary-top">
+              <span class="voice-note-card-time-row">
+                <span class="voice-note-card-time">${escapeHtml(formatVoiceNoteTimestamp(item.triggered_at))}</span>
+                ${resent ? '<span class="voice-note-card-time-separator" aria-hidden="true"></span><span class="voice-note-card-time-label">Resent</span>' : ""}
+              </span>
+            </span>
+            <span class="voice-note-card-preview">${escapeHtml(summonPreviewText(item && item.message ? item.message : ""))}</span>
+            <span class="voice-note-card-badges">${badges}</span>
+          </span>
+          <span class="voice-note-card-chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="voice-note-card-body">
+          <div class="voice-note-card-actions">
+            ${voiceNoteActions}
+            <button class="secondary-button" type="button" data-voice-note-action="resend" data-event-id="${escapeAttribute(String(item.event_id || ""))}">Resend</button>
+            <button class="secondary-button destructive" type="button" data-voice-note-action="delete" data-event-id="${escapeAttribute(String(item.event_id || ""))}"${item && item.active ? ' disabled title="Active summons cannot be deleted."' : ""}>Delete</button>
+          </div>
+          ${attachmentPreview}
+          <audio class="voice-note-inline-player hidden" controls preload="none"></audio>
+        </div>
+      `;
+      card.addEventListener("toggle", () => {
+        if (card.open) {
+          return;
+        }
+        const audio = card.querySelector(".voice-note-inline-player");
+        if (audio instanceof HTMLAudioElement && !audio.paused) {
+          audio.pause();
+        }
+        updateVoiceNotePlayButton(card);
+      });
+      return card;
+    }
+
+    function updateVoiceNotePlayButton(card) {
+      const button = card.querySelector('button[data-voice-note-action="play"]');
+      const audio = card.querySelector(".voice-note-inline-player");
+      if (!button || !audio) {
+        return;
+      }
+      button.textContent = (!audio.paused && !audio.ended) ? "Pause" : "Play";
+    }
+
+    function pauseOtherVoiceNotePlayers(activeAudio) {
+      document.querySelectorAll(".voice-note-inline-player").forEach((candidate) => {
+        if (!(candidate instanceof HTMLAudioElement) || candidate === activeAudio) {
+          return;
+        }
+        if (!candidate.paused) {
+          candidate.pause();
+        }
+      });
+    }
+
+    function ensureInlineVoiceNotePlayer(card, audioUrl) {
+      const audio = card.querySelector(".voice-note-inline-player");
+      if (!(audio instanceof HTMLAudioElement) || !audioUrl) {
+        return null;
+      }
+      if (!audio.src) {
+        audio.src = audioUrl;
+      }
+      audio.classList.remove("hidden");
+      if (audio.dataset.bound !== "true") {
+        audio.addEventListener("play", () => {
+          updateVoiceNotePlayButton(card);
+        });
+        audio.addEventListener("pause", () => {
+          updateVoiceNotePlayButton(card);
+        });
+        audio.addEventListener("ended", () => {
+          updateVoiceNotePlayButton(card);
+        });
+        audio.dataset.bound = "true";
+      }
+      return audio;
+    }
+
+    async function handleVoiceNoteListAction(event) {
+      const button = event.target.closest("button[data-voice-note-action]");
+      if (!button) {
+        return;
+      }
+      const action = String(button.dataset.voiceNoteAction || "").trim();
+      const eventId = String(button.dataset.eventId || "").trim();
+      if (!action || !eventId) {
+        return;
+      }
+      if (action === "play") {
+        const card = button.closest(".voice-note-card");
+        const audioUrl = String(button.dataset.audioUrl || "").trim();
+        if (!card || !audioUrl) {
+          return;
+        }
+        const audio = ensureInlineVoiceNotePlayer(card, audioUrl);
+        if (!(audio instanceof HTMLAudioElement)) {
+          return;
+        }
+        if (!audio.paused && !audio.ended) {
+          audio.pause();
+          updateVoiceNotePlayButton(card);
+          return;
+        }
+        pauseOtherVoiceNotePlayers(audio);
+        try {
+          await audio.play();
+        } catch (error) {
+          console.error("Lori's Summon inline voice-note playback failed", error);
+        }
+        updateVoiceNotePlayButton(card);
+        return;
+      }
+      if (action === "download") {
+        const downloadUrl = String(button.dataset.downloadUrl || "").trim();
+        if (!downloadUrl) {
+          return;
+        }
+        const anchor = document.createElement("a");
+        anchor.href = downloadUrl;
+        anchor.download = String(button.dataset.filename || "voice-note");
+        anchor.rel = "noopener";
+        anchor.style.display = "none";
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+        return;
+      }
+      if (action === "delete" && !window.confirm("Delete this saved summon? Existing attachment and voice-note links to it will stop working.")) {
+        return;
+      }
+      await runVoiceNoteAction(button, action, eventId);
+    }
+
+    async function runVoiceNoteAction(button, action, eventId) {
+      const card = button.closest(".voice-note-card");
+      if (!card || !authToken) {
+        return;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return;
+        }
+      }
+      const actionButtons = Array.from(card.querySelectorAll("button[data-voice-note-action]"));
+      actionButtons.forEach((candidate) => {
+        candidate.disabled = true;
+      });
+
+      try {
+        const response = await fetch(voiceNotesPath, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            action,
+            event_id: eventId
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return;
+        }
+        if (!response.ok || !payload || !payload.ok) {
+          showToast(
+            (payload && payload.message_text) || randomErrorMessage(payload && payload.reason ? payload.reason : "request failed"),
+            "error"
+          );
+          return;
+        }
+
+        if (action === "delete") {
+          voiceNoteEventIds.delete(eventId);
+          card.remove();
+          if (voiceNotesList && voiceNotesList.children.length === 0) {
+            setVoiceNotesStatus("No sent summons yet.");
+          }
+          if (voiceNotesHasMore && voiceNotesList && voiceNotesList.children.length < 4) {
+            void loadVoiceNotesPage();
+          } else {
+            updateVoiceNotesSentinel();
+          }
+          showToast(payload.message_text || "Summon deleted.", "success");
+          return;
+        }
+
+        if (action === "resend") {
+          showToast(payload.message_text || randomSuccessMessage(), "success");
+          if (payload.priority === "emergency" && payload.event_id) {
+            ensureWatchedEvent(payload.event_id);
+          }
+          markVoiceNotesDirty();
+        }
+      } catch (error) {
+        console.error("Lori's Summon voice-note action failed", error);
+        showToast(randomErrorMessage(error && error.message ? error.message : "request failed"), "error");
+      } finally {
+        actionButtons.forEach((candidate) => {
+          candidate.disabled = false;
+        });
+      }
+    }
+
+    function formatVoiceNoteTimestamp(value) {
+      if (!value) {
+        return "Unknown time";
+      }
+      const timestamp = new Date(value);
+      if (Number.isNaN(timestamp.getTime())) {
+        return "Unknown time";
+      }
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(timestamp);
+    }
+
+    function dispositionBadgeLabel(disposition) {
+      const normalized = String(disposition || "").trim().toLowerCase();
+      return {
+        triggered: "Triggered",
+        delivered: "Delivered",
+        acknowledged: "Acknowledged",
+        cancelled: "Cancelled",
+        superseded: "Superseded"
+      } [normalized] || titleCaseWords(normalized.replaceAll("_", " "));
+    }
+
+    function summonPreviewText(message) {
+      const cleaned = String(message || "").replace(/\s+/g, " ").trim();
+      if (!cleaned) {
+        return "No message";
+      }
+      if (cleaned.length <= 120) {
+        return cleaned;
+      }
+      return `${cleaned.slice(0, 117).trimEnd()}...`;
+    }
+
+    function isResentSummon(item) {
+      const source = String(item && item.source ? item.source : "").trim().toLowerCase();
+      return source.includes("resend");
+    }
+
+    function titleCaseWords(value) {
+      return String(value || "").replace(/\b\w/g, (character) => character.toUpperCase());
+    }
+
+    function priorityBadgeLabel(priority) {
+      return {
+        lowest: "Lowest",
+        low: "Low",
+        normal: "Normal",
+        high: "High",
+        emergency: "Emergency"
+      } [String(priority || "").trim().toLowerCase()] || "Unknown";
+    }
+
+    function priorityBadgeClass(priority) {
+      const normalized = String(priority || "").trim().toLowerCase();
+      return {
+        lowest: "priority-lowest",
+        low: "priority-low",
+        normal: "priority-normal",
+        high: "priority-high",
+        emergency: "priority-emergency"
+      } [normalized] || "priority-normal";
+    }
+
+    function priorityLabel(priority) {
+      return {
+        lowest: "Lowest priority",
+        low: "Low priority",
+        normal: "Normal priority",
+        high: "High priority",
+        emergency: "Emergency priority"
+      } [String(priority || "").trim().toLowerCase()] || "Priority unknown";
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;"
+      } [character] || character));
+    }
+
+    function escapeAttribute(value) {
+      return escapeHtml(value);
+    }
+
+    function initializeVoiceNoteCapture() {
+      if (!voiceNoteRecordButton || !voiceNoteStopButton || !voiceNoteClearButton || !voiceNoteStatus || !voiceNotePreview) {
+        return;
+      }
+      if (!voiceNoteRecordingSupported()) {
+        voiceNoteRecordButton.disabled = true;
+        voiceNoteStopButton.disabled = true;
+        voiceNoteClearButton.disabled = true;
+        voiceNoteStopButton.classList.add("hidden");
+        voiceNoteClearButton.classList.add("hidden");
+        setVoiceNoteStatus("Voice-note recording needs microphone support in this browser.");
+        return;
+      }
+      setVoiceNoteStatus(defaultVoiceNoteStatus);
+      updateVoiceNoteButtons();
+    }
+
+    function voiceNoteRecordingSupported() {
+      return Boolean(
+        voiceNoteRecordButton &&
+        voiceNoteStopButton &&
+        voiceNoteClearButton &&
+        voiceNoteStatus &&
+        voiceNotePreview &&
+        navigator.mediaDevices &&
+        typeof navigator.mediaDevices.getUserMedia === "function" &&
+        typeof window.MediaRecorder === "function"
+      );
+    }
+
+    function preferredVoiceNoteMimeType() {
+      if (typeof window.MediaRecorder !== "function" || typeof MediaRecorder.isTypeSupported !== "function") {
+        return "";
+      }
+      return voiceNoteMimeCandidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+    }
+
+    function voiceNoteExtension(mimeType) {
+      const normalized = String(mimeType || "").split(";", 1)[0].trim().toLowerCase();
+      return {
+        "audio/aac": ".aac",
+        "audio/mp4": ".m4a",
+        "audio/mpeg": ".mp3",
+        "audio/ogg": ".ogg",
+        "audio/wav": ".wav",
+        "audio/webm": ".webm",
+        "audio/x-wav": ".wav"
+      } [normalized] || ".webm";
+    }
+
+    function updateVoiceNoteButtons() {
+      if (!voiceNoteRecordButton || !voiceNoteStopButton || !voiceNoteClearButton) {
+        return;
+      }
+      const supported = voiceNoteRecordingSupported();
+      const isRecording = Boolean(voiceNoteRecorder && voiceNoteRecorder.state !== "inactive");
+      const hasVoiceNote = Boolean(voiceNoteBlob);
+      const submitBusy = submitInFlight || submitAfterVoiceNoteStop;
+      voiceNoteRecordButton.disabled = !supported || isRecording || submitBusy;
+      voiceNoteRecordButton.textContent = isRecording ? "Recording..." : (hasVoiceNote ? "Record New Voice Note" : "Record Voice Note");
+      voiceNoteRecordButton.classList.toggle("recording", isRecording);
+      voiceNoteStopButton.classList.toggle("hidden", !isRecording);
+      voiceNoteStopButton.disabled = !isRecording || submitAfterVoiceNoteStop;
+      voiceNoteClearButton.classList.toggle("hidden", isRecording || !hasVoiceNote);
+      voiceNoteClearButton.disabled = isRecording || !hasVoiceNote || submitBusy;
+    }
+
+    function continueSubmitAfterVoiceNoteStop() {
+      if (!submitAfterVoiceNoteStop || !form) {
+        return;
+      }
+      submitAfterVoiceNoteStop = false;
+      submitButton.disabled = false;
+      submitButton.textContent = "Summon";
+      updateVoiceNoteButtons();
+      form.requestSubmit();
+    }
+
+    function stopVoiceNoteStream() {
+      if (!voiceNoteStream) {
+        return;
+      }
+      voiceNoteStream.getTracks().forEach((track) => track.stop());
+      voiceNoteStream = null;
+    }
+
+    function clearVoiceNoteCapture() {
+      voiceNoteRecorder = null;
+      voiceNoteChunks = [];
+      voiceNoteBlob = null;
+      voiceNoteMimeType = "";
+      voiceNoteDurationSeconds = 0;
+      stopVoiceNoteStream();
+      if (voiceNoteObjectUrl) {
+        URL.revokeObjectURL(voiceNoteObjectUrl);
+        voiceNoteObjectUrl = "";
+      }
+      if (voiceNotePreview) {
+        voiceNotePreview.pause();
+        voiceNotePreview.removeAttribute("src");
+        voiceNotePreview.classList.add("hidden");
+        voiceNotePreview.load();
+      }
+    }
+
+    function cleanupVoiceNoteCapture() {
+      try {
+        if (voiceNoteRecorder && voiceNoteRecorder.state !== "inactive") {
+          voiceNoteRecorder.stop();
+        }
+      } catch (error) {
+        console.warn("Lori's Summon could not stop the voice-note recorder cleanly", error);
+      }
+      clearVoiceNoteCapture();
+    }
+
+    async function startVoiceNoteRecording() {
+      if (!voiceNoteRecordingSupported()) {
+        showToast("Voice-note recording is unavailable in this browser.", "error");
+        return;
+      }
+      if (voiceNoteRecorder && voiceNoteRecorder.state !== "inactive") {
+        return;
+      }
+      clearVoiceNoteCapture();
+      setVoiceNoteStatus("Requesting microphone access...");
+      updateVoiceNoteButtons();
+      try {
+        voiceNoteStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        const mimeType = preferredVoiceNoteMimeType();
+        voiceNoteRecorder = mimeType ? new MediaRecorder(voiceNoteStream, { mimeType }) : new MediaRecorder(voiceNoteStream);
+        voiceNoteChunks = [];
+        voiceNoteMimeType = voiceNoteRecorder.mimeType || mimeType || "";
+        voiceNoteStartedAt = Date.now();
+        voiceNoteDurationSeconds = 0;
+        voiceNoteRecorder.addEventListener("dataavailable", (event) => {
+          if (event.data && event.data.size) {
+            voiceNoteChunks.push(event.data);
+          }
+        });
+        voiceNoteRecorder.addEventListener("stop", () => {
+          const finishedBlob = new Blob(
+            voiceNoteChunks,
+            { type: voiceNoteRecorder && voiceNoteRecorder.mimeType ? voiceNoteRecorder.mimeType : (voiceNoteMimeType || "audio/webm") }
+          );
+          stopVoiceNoteStream();
+          voiceNoteChunks = [];
+          voiceNoteRecorder = null;
+          if (!finishedBlob.size) {
+            clearVoiceNoteCapture();
+            setVoiceNoteStatus(defaultVoiceNoteStatus);
+            updateVoiceNoteButtons();
+            showToast("Voice note recording did not capture any audio.", "error");
+            continueSubmitAfterVoiceNoteStop();
+            return;
+          }
+          if (finishedBlob.size > voiceNoteMaxBytes) {
+            clearVoiceNoteCapture();
+            setVoiceNoteStatus(defaultVoiceNoteStatus);
+            updateVoiceNoteButtons();
+            showToast(randomErrorMessage("voice note exceeds the 75 mb upload limit"), "error");
+            continueSubmitAfterVoiceNoteStop();
+            return;
+          }
+          voiceNoteBlob = finishedBlob;
+          voiceNoteMimeType = finishedBlob.type || voiceNoteMimeType || "audio/webm";
+          voiceNoteDurationSeconds = Math.max(1, Math.round((Date.now() - voiceNoteStartedAt) / 1000));
+          voiceNoteObjectUrl = URL.createObjectURL(finishedBlob);
+          voiceNotePreview.src = voiceNoteObjectUrl;
+          voiceNotePreview.classList.remove("hidden");
+          voiceNotePreview.load();
+          setVoiceNoteStatus(`Voice note ready (${formatVoiceNoteDuration(voiceNoteDurationSeconds)}).`);
+          updateVoiceNoteButtons();
+          continueSubmitAfterVoiceNoteStop();
+        }, { once: true });
+        voiceNoteRecorder.start();
+        setVoiceNoteStatus("Recording voice note. Tap Stop Recording when you are done.");
+        updateVoiceNoteButtons();
+      } catch (error) {
+        console.error("Lori's Summon voice-note recording failed", error);
+        clearVoiceNoteCapture();
+        setVoiceNoteStatus(defaultVoiceNoteStatus);
+        updateVoiceNoteButtons();
+        showToast("Microphone access is required to record a voice note.", "error");
+      }
+    }
+
+    function stopVoiceNoteRecording() {
+      if (!voiceNoteRecorder || voiceNoteRecorder.state === "inactive") {
+        return false;
+      }
+      setVoiceNoteStatus("Finishing voice note...");
+      try {
+        voiceNoteRecorder.stop();
+      } catch (error) {
+        console.error("Lori's Summon could not stop the voice-note recorder cleanly", error);
+        return false;
+      }
+      updateVoiceNoteButtons();
+      return true;
+    }
+
+    function formatVoiceNoteDuration(totalSeconds) {
+      const seconds = Math.max(1, Number(totalSeconds) || 0);
+      const minutes = Math.floor(seconds / 60);
+      const remainingSeconds = seconds % 60;
+      return `${minutes}:${String(remainingSeconds).padStart(2, "0")}`;
+    }
+
+    function showLoginPanel(message = defaultLoginStatus) {
+      disconnectStatusStream();
+      clearStatusReconnect();
+      statusBootstrapComplete = false;
+      watchedEventStates.clear();
+      clearVoiceNoteCapture();
+      setVoiceNoteStatus(defaultVoiceNoteStatus);
+      updateVoiceNoteButtons();
+      resetVoiceNotesState();
+      activeTab = "summon";
+      applyActiveTab();
+      setLoginStatus(message);
+      loginPanel.classList.remove("hidden");
+      appPanel.classList.add("hidden");
+      logoutButton.classList.add("hidden");
+      document.body.classList.remove("loading");
+    }
+
+    function showAppPanel() {
+      loginPanel.classList.add("hidden");
+      appPanel.classList.remove("hidden");
+      logoutButton.classList.remove("hidden");
+      updateVoiceNoteButtons();
+      applyActiveTab();
+      document.body.classList.remove("loading");
+    }
+
+    function randomSuccessMessage() {
+      // Keep client fallbacks aligned with the server side summon success voice
+      return successMessages[Math.floor(Math.random() * successMessages.length)];
+    }
+
+    function nextPlaceholder(currentPlaceholder) {
+      // Prefer a different prompt when the user taps the refresh affordance
+      if (!Array.isArray(placeholderMessages) || placeholderMessages.length === 0) {
+        return currentPlaceholder || "";
+      }
+      if (placeholderMessages.length === 1) {
+        return placeholderMessages[0];
+      }
+      let next = currentPlaceholder || "";
+      while (next === currentPlaceholder) {
+        next = placeholderMessages[Math.floor(Math.random() * placeholderMessages.length)];
+      }
+      return next;
+    }
+
+    function randomErrorMessage(reason) {
+      // Pick a fresh failure line for every browser side error event
+      const text = errorMessages[Math.floor(Math.random() * errorMessages.length)];
+      return `${text} (Reason: ${humanErrorReason(reason)})`;
+    }
+
+    function isImageAttachment(file) {
+      // Mirror the backend image-only policy before the upload starts
+      if (!file) {
+        return false;
+      }
+      if (typeof file.type === "string" && file.type.startsWith("image/")) {
+        return true;
+      }
+      const lowerName = String(file.name || "").trim().toLowerCase();
+      return supportedAttachmentExtensions.some((extension) => lowerName.endsWith(extension));
+    }
+
+    function humanErrorReason(reason) {
+      // Match the Python reason mapping so the browser UI stays consistent
+      const normalized = String(reason || "unknown").trim().toLowerCase().replaceAll("_", " ");
+      return {
+        "invalid": "empty command",
+        "invalid priority": "invalid priority",
+        "rate limited": "rate limit",
+        "attachment is not a supported image": "attachment must be an image file",
+        "attachment exceeds the 5 mb pushover limit": "attachment exceeds the 5 MB limit",
+        "attachment exceeds the 25 mb processing limit": "attachment exceeds the 25 MB upload limit",
+        "voice note is empty": "voice note was empty",
+        "voice note is not a supported audio file": "voice note must be an audio file",
+        "voice note exceeds the 75 mb upload limit": "voice note exceeds the 75 MB upload limit",
+        "attachments require a home assistant allowlist external dirs entry": "attachments need an allowed Home Assistant upload directory",
+      } [normalized] || normalized || "unknown";
+    }
+
+    function showToast(message, kind) {
+      const toast = document.createElement("div");
+      toast.className = `toast ${kind === "success" ? "success" : "error"}`;
+      toast.textContent = message;
+      toastStack.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.add("visible");
+      });
+
+      window.setTimeout(() => {
+        toast.classList.remove("visible");
+        window.setTimeout(() => toast.remove(), 180);
+      }, 5000);
+    }
+
+    function readStoredAccessToken() {
+      try {
+        return window.localStorage.getItem(authStorageKey) || "";
+      } catch (error) {
+        return "";
+      }
+    }
+
+    function storeAccessToken(token) {
+      const claims = parseJwtClaims(token);
+      if (!claims || !claims.exp) {
+        throw new Error("invalid token");
+      }
+      authToken = token;
+      authExpiresAt = Number(claims.exp) * 1000;
+      try {
+        window.localStorage.setItem(authStorageKey, token);
+      } catch (error) {
+        console.warn("Lori's Summon could not persist the access token", error);
+      }
+      scheduleAuthRefresh();
+    }
+
+    function clearAccessToken() {
+      authToken = "";
+      authExpiresAt = 0;
+      clearAuthRefreshTimer();
+      authRefreshInFlight = null;
+      try {
+        window.localStorage.removeItem(authStorageKey);
+      } catch (error) {
+        console.warn("Lori's Summon could not clear the access token", error);
+      }
+    }
+
+    function clearAuthRefreshTimer() {
+      if (!authRefreshTimer) {
+        return;
+      }
+      window.clearTimeout(authRefreshTimer);
+      authRefreshTimer = 0;
+    }
+
+    function scheduleAuthRefreshRetry(delayMs = 60000) {
+      clearAuthRefreshTimer();
+      authRefreshTimer = window.setTimeout(() => {
+        void refreshAccessToken();
+      }, delayMs);
+    }
+
+    function parseJwtClaims(token) {
+      try {
+        const parts = String(token || "").split(".");
+        if (parts.length !== 3) {
+          return null;
+        }
+        const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+        const padded = payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), "=");
+        return JSON.parse(window.atob(padded));
+      } catch (error) {
+        return null;
+      }
+    }
+
+    function tokenNeedsRefresh() {
+      if (!authToken || !authExpiresAt) {
+        return false;
+      }
+      return (authExpiresAt - Date.now()) <= tokenRefreshWindowSeconds * 1000;
+    }
+
+    function scheduleAuthRefresh() {
+      clearAuthRefreshTimer();
+      if (!authToken || !authExpiresAt) {
+        return;
+      }
+      const refreshAt = authExpiresAt - tokenRefreshWindowSeconds * 1000;
+      const delay = Math.max(1000, refreshAt - Date.now());
+      authRefreshTimer = window.setTimeout(() => {
+        void refreshAccessToken();
+      }, delay);
+    }
+
+    async function refreshAccessToken() {
+      if (!authToken) {
+        return false;
+      }
+      if (authRefreshInFlight) {
+        return authRefreshInFlight;
+      }
+      authRefreshInFlight = (async () => {
+        try {
+          const response = await fetch(refreshPath, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Accept": "application/json",
+              "Authorization": `Bearer ${authToken}`
+            }
+          });
+          const payload = await response.json().catch(() => null);
+          if (response.status === 401 || !response.ok || !payload || !payload.token) {
+            handleLogout("Session expired. Sign in again.");
+            return false;
+          }
+          storeAccessToken(payload.token);
+          if (watchedEventStates.size > 0) {
+            disconnectStatusStream();
+            ensureStatusStreamConnection();
+          }
+          return true;
+        } catch (error) {
+          console.error("Lori's Summon token refresh failed", error);
+          scheduleAuthRefreshRetry();
+          return false;
+        } finally {
+          authRefreshInFlight = null;
+        }
+      })();
+      return authRefreshInFlight;
+    }
+
+    async function initializeAuthState() {
+      const storedToken = readStoredAccessToken();
+      if (!storedToken) {
+        showLoginPanel();
+        return;
+      }
+      const claims = parseJwtClaims(storedToken);
+      if (!claims || !claims.exp || Number(claims.exp) * 1000 <= Date.now()) {
+        clearAccessToken();
+        showLoginPanel("Session expired. Sign in again.");
+        return;
+      }
+      storeAccessToken(storedToken);
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return;
+        }
+      }
+      showAppPanel();
+      await bootstrapStatusWatch();
+    }
+
+    function handleLogout(message) {
+      clearAccessToken();
+      showLoginPanel(message || defaultLoginStatus);
+    }
+
+    function ensureWatchedEvent(eventId) {
+      // Open the stream immediately for newly created emergency summons instead of waiting for a refresh
+      const watchedId = String(eventId || "").trim();
+      if (!watchedId) {
+        return;
+      }
+      if (!watchedEventStates.has(watchedId)) {
+        watchedEventStates.set(watchedId, { event_id: watchedId });
+      }
+      ensureStatusStreamConnection();
+    }
+
+    async function bootstrapStatusWatch() {
+      // Rebuild the in-browser watch list after reloads so unanswered emergencies reconnect automatically
+      clearStatusReconnect();
+      if (!authToken) {
+        showLoginPanel();
+        return false;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return false;
+        }
+      }
+      try {
+        const response = await fetch(statusPath, {
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          }
+        });
+        if (response.status === 401) {
+          let payload = null;
+          try {
+            payload = await response.json();
+          } catch (error) {
+            payload = null;
+          }
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return false;
+        }
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = await response.json();
+        statusBootstrapComplete = true;
+        syncWatchedEvents(payload);
+        return true;
+      } catch (error) {
+        console.error("Lori's Summon status bootstrap failed", error);
+        scheduleStatusReconnect();
+        return false;
+      }
+    }
+
+    function ensureStatusStreamConnection() {
+      // Keep one SSE connection open only while there are emergency events still being watched
+      if (watchedEventStates.size === 0) {
+        disconnectStatusStream();
+        return;
+      }
+      if (statusEventSource) {
+        return;
+      }
+      clearStatusReconnect();
+      if (!authToken) {
+        showLoginPanel();
+        return;
+      }
+      statusEventSource = new EventSource(`${statusStreamPath}?access_token=${encodeURIComponent(authToken)}`);
+      statusEventSource.addEventListener("status", handleStatusStreamMessage);
+      statusEventSource.onmessage = handleStatusStreamMessage;
+      statusEventSource.onerror = () => {
+        if (statusEventSource) {
+          statusEventSource.close();
+          statusEventSource = null;
+        }
+        scheduleStatusReconnect();
+      };
+    }
+
+    function disconnectStatusStream() {
+      if (statusEventSource) {
+        statusEventSource.close();
+        statusEventSource = null;
+      }
+      clearStatusReconnect();
+    }
+
+    function scheduleStatusReconnect() {
+      // Retry only while we are still waiting for the initial snapshot or for active watched emergencies
+      if (
+        !authToken ||
+        statusReconnectTimer ||
+        (statusBootstrapComplete && watchedEventStates.size === 0)
+      ) {
+        return;
+      }
+      statusReconnectTimer = window.setTimeout(() => {
+        statusReconnectTimer = 0;
+        void bootstrapStatusWatch();
+      }, 3000);
+    }
+
+    function clearStatusReconnect() {
+      if (!statusReconnectTimer) {
+        return;
+      }
+      window.clearTimeout(statusReconnectTimer);
+      statusReconnectTimer = 0;
+    }
+
+    function handleStatusStreamMessage(event) {
+      // Apply streamed snapshots so the page can stop waiting as soon as all emergencies resolve
+      try {
+        const payload = JSON.parse(String(event.data || "{}"));
+        syncWatchedEvents(payload);
+      } catch (error) {
+        console.error("Lori's Summon status stream parse failed", error);
+      }
+    }
+
+    function syncWatchedEvents(payload) {
+      // Compare old and new watched lists so acknowledged emergencies surface once and the stream can close cleanly
+      const previousWatched = new Map(watchedEventStates);
+      const nextWatched = buildWatchedEventMap(payload);
+      const eventIndex = buildEventIndex(payload);
+
+      watchedEventStates.clear();
+      nextWatched.forEach((value, key) => {
+        watchedEventStates.set(key, value);
+      });
+
+      previousWatched.forEach((previousEvent, eventId) => {
+        const nextEvent = watchedEventStates.get(eventId);
+        const resolvedEvent = nextEvent || eventIndex.get(eventId) || previousEvent;
+        if (nextEvent) {
+          return;
+        }
+        if (resolvedEvent && resolvedEvent.acknowledged_at && !previousEvent.acknowledged_at) {
+          showToast(emergencyAcknowledgedMessage(resolvedEvent), "success");
+          return;
+        }
+        if (resolvedEvent && resolvedEvent.pushover_expired && !previousEvent.pushover_expired) {
+          showToast(randomErrorMessage("emergency summon expired"), "error");
+        }
+      });
+
+      ensureStatusStreamConnection();
+    }
+
+    function buildWatchedEventMap(payload) {
+      const watchedEvents = Array.isArray(payload && payload.watched_events) ? payload.watched_events : [];
+      const watchedMap = new Map();
+      for (const item of watchedEvents) {
+        const eventId = item && item.event_id ? String(item.event_id).trim() : "";
+        if (!eventId) {
+          continue;
+        }
+        watchedMap.set(eventId, item);
+      }
+      return watchedMap;
+    }
+
+    function buildEventIndex(payload) {
+      const eventIndex = new Map();
+      const addRecord = (record) => {
+        const eventId = record && record.event_id ? String(record.event_id).trim() : "";
+        if (!eventId) {
+          return;
+        }
+        eventIndex.set(eventId, record);
+      };
+
+      addRecord(payload && payload.active_event);
+      addRecord(payload && payload.matching_event);
+
+      if (Array.isArray(payload && payload.watched_events)) {
+        payload.watched_events.forEach(addRecord);
+      }
+      if (Array.isArray(payload && payload.history)) {
+        payload.history.forEach(addRecord);
+      }
+      return eventIndex;
+    }
+
+    function emergencyAcknowledgedMessage(event) {
+      // Include the stored emergency acknowledgment time so the toast reflects the actual wait
+      const elapsedText = formatEmergencyAcknowledgmentDuration(event);
+      const device = String(event.pushover_acknowledged_by_device || "").trim();
+      if (device) {
+        return `Your emergency summons has been acknowledged in ${elapsedText} on ${device}; consider this moving forward.`;
+      }
+      return `Your emergency summons has been acknowledged in ${elapsedText}; consider this moving forward.`;
+    }
+
+    function formatEmergencyAcknowledgmentDuration(event) {
+      // Prefer the persisted duration and fall back to timestamps if an older event lacks it
+      const rawStoredSeconds = event && event.emergency_acknowledged_after_seconds;
+      const storedSeconds = Number(rawStoredSeconds);
+      if (rawStoredSeconds !== null && rawStoredSeconds !== undefined && rawStoredSeconds !== "" && Number.isFinite(storedSeconds) && storedSeconds >= 0) {
+        return formatDurationSeconds(storedSeconds);
+      }
+      const triggeredAt = Date.parse(String(event && event.triggered_at || ""));
+      const acknowledgedAt = Date.parse(String(event && (event.pushover_acknowledged_at || event.acknowledged_at) || ""));
+      if (!Number.isFinite(triggeredAt) || !Number.isFinite(acknowledgedAt)) {
+        return "an unknown amount of time";
+      }
+      return formatDurationSeconds(Math.max(0, Math.round((acknowledgedAt - triggeredAt) / 1000)));
+    }
+
+    function formatDurationSeconds(totalSeconds) {
+      // Use a compact human duration because this text is shown inside short toasts
+      const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+      if (seconds < 60) {
+        return `${seconds}s`;
+      }
+      const minutes = Math.floor(seconds / 60);
+      const remainderSeconds = seconds % 60;
+      if (seconds < 3600) {
+        return remainderSeconds ? `${minutes}m ${remainderSeconds}s` : `${minutes}m`;
+      }
+      const hours = Math.floor(minutes / 60);
+      const remainderMinutes = minutes % 60;
+      if (!remainderMinutes) {
+        return `${hours}h`;
+      }
+      return `${hours}h ${remainderMinutes}m`;
+    }
+
+    // Smooth the Poisson curve segments so the drift stays organic
+    function interpolation(a, b, t) {
+      return ((1 - Math.cos(Math.PI * t)) / 2) * (b - a) + a;
+    }
+
+    // Create a one dimensional Poisson spline like the referenced confetti emitter
+    function createPoisson(radius) {
+      const radius2 = radius * 2;
+      const domain = [radius, 1 - radius];
+      let measure = 1 - radius2;
+      const spline = [0, 1];
+      while (measure > 0) {
+        let dart = Math.random() * measure;
+        let offset = 0;
+        for (let index = 0; index < domain.length; index += 2) {
+          const start = domain[index];
+          const end = domain[index + 1];
+          const span = end - start;
+          if (dart < offset + span) {
+            dart += start - offset;
+            spline.push(dart);
+            break;
+          }
+          offset += span;
+        }
+        const lower = dart - radius;
+        const upper = dart + radius;
+        for (let index = domain.length - 2; index >= 0; index -= 2) {
+          const start = domain[index];
+          const end = domain[index + 1];
+          if (start >= lower && start < upper) {
+            if (end > upper) {
+              domain[index] = upper;
+            } else {
+              domain.splice(index, 2);
+            }
+            continue;
+          }
+          if (start < lower && end > lower) {
+            if (end <= upper) {
+              domain[index + 1] = lower;
+            } else {
+              domain.splice(index + 1, 0, lower, upper);
+            }
+          }
+        }
+        measure = 0;
+        for (let index = 0; index < domain.length; index += 2) {
+          measure += domain[index + 1] - domain[index];
+        }
+      }
+      return spline.sort((left, right) => left - right);
+    }
+
+    // Build one heart particle and let the caller choose between page scatter and top emission
+    function createConfetto(viewportWidth, viewportHeight, spawnMode = "top") {
+      const outer = document.createElement("span");
+      outer.className = "confetti-piece";
+      const inner = document.createElement("span");
+      inner.className = "confetti-heart";
+      inner.textContent = "♥";
+      outer.appendChild(inner);
+
+      const size = 14 + Math.round(Math.random() * 18);
+      const deviation = confettiDeviation + Math.random() * 24;
+      const splineX = createPoisson(1 / confettiEccentricity);
+      const splineY = [];
+      const lastIndex = splineX.length - 1;
+      for (let index = 1; index < lastIndex; index += 1) {
+        splineY[index] = deviation * Math.random();
+      }
+      splineY[0] = deviation * Math.random();
+      splineY[lastIndex] = deviation * Math.random();
+
+      const startX = viewportWidth * Math.random();
+      const startY =
+        spawnMode === "scatter" ?
+        Math.random() * viewportHeight * 0.78 - deviation * 0.28 :
+        -deviation - Math.random() * (viewportHeight * 0.06 + 24);
+      const confetto = {
+        outer,
+        inner,
+        frame: 0,
+        x: startX,
+        y: startY,
+        dx: Math.sin(-0.11 + 0.22 * Math.random()),
+        dy: 0.13 + 0.05 * Math.random(),
+        theta: 360 * Math.random(),
+        dTheta: (0.12 + 0.08 * Math.random()) * (Math.random() < 0.5 ? -1 : 1),
+        splineX,
+        splineY,
+        deviation,
+        fadeStartY: viewportHeight * (0.76 + Math.random() * 0.08),
+      };
+
+      outer.style.setProperty("--size", `${size}px`);
+      outer.style.setProperty("--heart-color", confettiColors[Math.floor(Math.random() * confettiColors.length)]);
+      outer.style.transform = `translate3d(${confetto.x}px, ${confetto.y}px, 0)`;
+      inner.style.transform = `rotate(${confetto.theta}deg)`;
+      return confetto;
+    }
+
+    // Clear any previous burst so each success starts from one clean run
+    function clearConfetti() {
+      if (confettiEmitTimer) {
+        window.clearTimeout(confettiEmitTimer);
+        confettiEmitTimer = 0;
+      }
+      if (confettiFrameId) {
+        window.cancelAnimationFrame(confettiFrameId);
+        confettiFrameId = 0;
+      }
+      confettiPrevTimestamp = 0;
+      while (activeConfetti.length) {
+        const piece = activeConfetti.pop();
+        piece.outer.remove();
+      }
+    }
+
+    // Keep every heart on one shared frame loop so the motion stays smooth
+    function scheduleConfettiFrame() {
+      if (confettiFrameId || activeConfetti.length === 0) {
+        return;
+      }
+      confettiFrameId = window.requestAnimationFrame(stepConfetti);
+    }
+
+    // Update one particle and let it fade as it nears the bottom edge
+    function updateConfetto(confetto, viewportHeight, delta) {
+      confetto.frame += delta;
+      confetto.x += confetto.dx * delta;
+      confetto.y += confetto.dy * delta;
+      confetto.theta += confetto.dTheta * delta;
+
+      let phi = (confetto.frame % 7777) / 7777;
+      let lowerIndex = 0;
+      let upperIndex = 1;
+      while (upperIndex < confetto.splineX.length && phi >= confetto.splineX[upperIndex]) {
+        lowerIndex = upperIndex;
+        upperIndex += 1;
+      }
+      if (upperIndex >= confetto.splineX.length) {
+        upperIndex = confetto.splineX.length - 1;
+        lowerIndex = Math.max(0, upperIndex - 1);
+      }
+      const start = confetto.splineX[lowerIndex];
+      const end = confetto.splineX[upperIndex];
+      const span = end - start || 1;
+      const rho = interpolation(
+        confetto.splineY[lowerIndex],
+        confetto.splineY[upperIndex],
+        (phi - start) / span
+      );
+      phi *= Math.PI * 2;
+
+      const x = confetto.x + rho * Math.cos(phi);
+      const y = confetto.y + rho * Math.sin(phi);
+      const opacity =
+        y <= confetto.fadeStartY ?
+        1 :
+        Math.max(0, 1 - Math.pow((y - confetto.fadeStartY) / (viewportHeight + confetto.deviation - confetto.fadeStartY), 1.25));
+      const squash = 0.94 + 0.06 * Math.cos(confetto.frame * 0.006);
+
+      confetto.outer.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+      confetto.outer.style.opacity = String(opacity);
+      confetto.inner.style.transform = `rotate(${confetto.theta}deg) scale(${squash})`;
+      return y > viewportHeight + confetto.deviation || opacity <= 0;
+    }
+
+    // Animate all active hearts until the emitter stops and the last piece leaves the screen
+    function stepConfetti(now) {
+      confettiFrameId = 0;
+      const delta = confettiPrevTimestamp ? now - confettiPrevTimestamp : 16.7;
+      confettiPrevTimestamp = now;
+      const height = window.innerHeight;
+      for (let index = activeConfetti.length - 1; index >= 0; index -= 1) {
+        const piece = activeConfetti[index];
+        if (!updateConfetto(piece, height, delta)) {
+          continue;
+        }
+        piece.outer.remove();
+        activeConfetti.splice(index, 1);
+      }
+      if (confettiEmitTimer || activeConfetti.length) {
+        scheduleConfettiFrame();
+        return;
+      }
+      confettiPrevTimestamp = 0;
+    }
+
+    // Emit fresh hearts from the top edge for three seconds and let the rest finish naturally
+    function emitConfetti(stopAt) {
+      if (!confettiLayer) {
+        return;
+      }
+      if (performance.now() >= stopAt) {
+        confettiEmitTimer = 0;
+        return;
+      }
+      const confetto = createConfetto(window.innerWidth, window.innerHeight, "top");
+      activeConfetti.push(confetto);
+      confettiLayer.appendChild(confetto.outer);
+      scheduleConfettiFrame();
+      confettiEmitTimer = window.setTimeout(() => emitConfetti(stopAt), 22 + Math.random() * 36);
+    }
+
+    // Start a new CodePen style confetti run with the same pink heart palette
+    function launchConfetti() {
+      if (!confettiLayer) {
+        return;
+      }
+      clearConfetti();
+      const fragment = document.createDocumentFragment();
+      const initialCount = window.innerWidth < 640 ? 28 : 42;
+      for (let index = 0; index < initialCount; index += 1) {
+        const confetto = createConfetto(window.innerWidth, window.innerHeight, "scatter");
+        activeConfetti.push(confetto);
+        fragment.appendChild(confetto.outer);
+      }
+      confettiLayer.appendChild(fragment);
+      scheduleConfettiFrame();
+      emitConfetti(performance.now() + confettiEmitWindowMs);
+    }
+  </script>
+</body>
+
+</html>

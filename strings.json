@@ -1,0 +1,81 @@
+{
+    "config": {
+        "abort": {
+            "single_instance_allowed": "Only one Lori's Summon entry can be configured."
+        },
+        "error": {
+            "api_token_required": "API token is required.",
+            "pushover_app_token_required": "Pushover app token is required.",
+            "pushover_user_key_required": "Pushover user key is required.",
+            "web_auth_incomplete": "Web username and web password must either both be set or both be empty."
+        },
+        "step": {
+            "user": {
+                "data": {
+                    "alert_title": "Notification title",
+                    "api_token": "External API token",
+                    "cooldown_seconds": "Cooldown seconds",
+                    "debug_logging": "Debug logging",
+                    "enable_web": "Enable web page",
+                    "history_size": "History size",
+                    "light_flash_brightness": "Flash brightness",
+                    "light_flash_color": "Flash color",
+                    "light_flash_count": "Flash count",
+                    "light_flash_duration": "Flash duration",
+                    "light_target": "Light target",
+                    "max_triggers_per_window": "Max triggers per window",
+                    "message_template": "Message template",
+                    "name": "Name",
+                    "pushover_app_token": "Pushover app token",
+                    "pushover_device": "Pushover device",
+                    "pushover_sound_default": "Pushover sound for normal",
+                    "pushover_sound_emergency": "Pushover sound for emergency",
+                    "pushover_sound_low": "Pushover sound for low",
+                    "pushover_sound_lowest": "Pushover sound for lowest",
+                    "pushover_sound_normal": "Pushover sound for high",
+                    "pushover_user_key": "Pushover user key",
+                    "rate_limit_window_seconds": "Rate limit window seconds",
+                    "trigger_lights": "Flash lights",
+                    "web_password": "Web password",
+                    "web_username": "Web username"
+                },
+                "description": "Configure notifications, light flashing, and the external API endpoints.",
+                "title": "Lori's Summon"
+            }
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "data": {
+                    "alert_title": "Notification title",
+                    "api_token": "External API token",
+                    "cooldown_seconds": "Cooldown seconds",
+                    "debug_logging": "Debug logging",
+                    "enable_web": "Enable web page",
+                    "history_size": "History size",
+                    "light_flash_brightness": "Flash brightness",
+                    "light_flash_color": "Flash color",
+                    "light_flash_count": "Flash count",
+                    "light_flash_duration": "Flash duration",
+                    "light_target": "Light target",
+                    "max_triggers_per_window": "Max triggers per window",
+                    "message_template": "Message template",
+                    "pushover_app_token": "Pushover app token",
+                    "pushover_device": "Pushover device",
+                    "pushover_sound_default": "Pushover sound for normal",
+                    "pushover_sound_emergency": "Pushover sound for emergency",
+                    "pushover_sound_low": "Pushover sound for low",
+                    "pushover_sound_lowest": "Pushover sound for lowest",
+                    "pushover_sound_normal": "Pushover sound for high",
+                    "pushover_user_key": "Pushover user key",
+                    "rate_limit_window_seconds": "Rate limit window seconds",
+                    "trigger_lights": "Flash lights",
+                    "web_password": "Web password",
+                    "web_username": "Web username"
+                },
+                "title": "Lori's Summon"
+            }
+        }
+    }
+}
