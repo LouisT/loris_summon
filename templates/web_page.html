@@ -406,6 +406,7 @@
     input[type="text"],
     input[type="search"],
     input[type="password"],
+    input[type="datetime-local"],
     select,
     input[type="file"] {
       width: 100%;
@@ -422,9 +423,31 @@
     input[type="text"],
     input[type="search"],
     input[type="password"],
+    input[type="datetime-local"],
     select {
       min-height: 50px;
       padding: 0 16px;
+    }
+
+    input[type="datetime-local"] {
+      padding-right: 26px;
+      cursor: pointer;
+    }
+
+    input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 1;
+      filter: brightness(0) invert(1);
+      margin-right: -10px;
+      margin-left: 2px;
+      padding: 2px;
+    }
+
+    input[type="datetime-local"]::-moz-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: 1;
+      filter: brightness(0) invert(1);
+      margin-right: -10px;
     }
 
     select {
@@ -442,6 +465,7 @@
     input[type="text"]:focus,
     input[type="search"]:focus,
     input[type="password"]:focus,
+    input[type="datetime-local"]:focus,
     select:focus,
     input[type="file"]:focus {
       border-color: var(--accent);
@@ -828,12 +852,6 @@
       margin-left: 0.35rem;
       font-size: 0.78rem;
       color: rgba(255, 255, 255, 0.42);
-    }
-
-    .summon-when-input {
-      display: block;
-      width: 100%;
-      max-width: 22rem;
     }
 
     .summon-when-hint {
@@ -1592,9 +1610,22 @@
       input[type="text"],
       input[type="search"],
       input[type="password"],
+      input[type="datetime-local"],
       select {
         min-height: 44px;
         padding: 0 14px;
+      }
+
+      input[type="datetime-local"] {
+        padding-right: 22px;
+      }
+
+      input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+        margin-right: -8px;
+      }
+
+      input[type="datetime-local"]::-moz-calendar-picker-indicator {
+        margin-right: -8px;
       }
 
       input[type="file"] {
@@ -1788,8 +1819,8 @@
             </div>
             <div class="field-group">
               <label for="summon-when">Send later (optional)</label>
-              <input class="summon-when-input" id="summon-when" name="summon_when" type="datetime-local" autocomplete="off" />
-              <p class="summon-when-hint">If set, this command is queued for that time instead of sending now. Uses your browser's local timezone. Clear the date to send immediately. Not available with an attachment or voice note.</p>
+              <input id="summon-when" name="summon_when" type="datetime-local" autocomplete="off" />
+              <p class="summon-when-hint">If set, this command (and any attachment or voice note below) is queued for that time instead of sending now. Uses your browser's local timezone; clear the date to send immediately.</p>
             </div>
             <div class="field-group">
               <label for="attachment">ATTACHMENT (optional)</label>
@@ -1989,6 +2020,7 @@
     const authStorageKey = "loris_summon_web_jwt";
     const placeholderMessages = __PLACEHOLDER_MESSAGES__;
     const submitButton = document.getElementById("summon-button");
+    wireDatetimeLocalOpenPickerOnFieldClick(document.getElementById("summon-when"));
     const successMessages = __SUCCESS_MESSAGES__;
     const errorMessages = __ERROR_MESSAGES__;
     const initialToast = __INITIAL_TOAST__;
@@ -2530,13 +2562,13 @@
       const summonWhenEl = document.getElementById("summon-when");
       const scheduleWhenIso = summonWhenEl ? localDateTimeValueToUtcIso(String(summonWhenEl.value || "").trim()) : "";
       if (scheduleWhenIso) {
-        if (attachment || voiceNoteBlob) {
-          showToast("Remove the attachment and voice note to send later, or clear \"Send later\" to summon now.", "error");
+        const scheduleMessage = textarea.value.trim();
+        if (!scheduleMessage && !attachment && !voiceNoteBlob) {
+          showToast(randomErrorMessage("invalid"), "error");
           return;
         }
-        const scheduleMessage = textarea.value.trim();
-        if (!scheduleMessage) {
-          showToast(randomErrorMessage("invalid"), "error");
+        if (voiceNoteBlob && voiceNoteBlob.size > voiceNoteMaxBytes) {
+          showToast(randomErrorMessage("voice note exceeds the 75 mb upload limit"), "error");
           return;
         }
         if (!authToken) {
@@ -2557,20 +2589,44 @@
               return;
             }
           }
+          const hasUpload = Boolean(attachment || voiceNoteBlob);
+          if (hasUpload) {
+            showUploadProgressModal();
+            const uploadDetail = attachment && voiceNoteBlob ?
+              "Uploading attachment and voice note…" :
+              (attachment ? "Uploading attachment…" : "Uploading voice note…");
+            setUploadProgressModal({
+              status: "Scheduling summon…",
+              detail: uploadDetail
+            });
+          }
+          const scheduleBody = new FormData();
+          scheduleBody.set("action", "schedule_summon");
+          scheduleBody.set("when", scheduleWhenIso);
+          scheduleBody.set("message", scheduleMessage);
+          scheduleBody.set("priority", prioritySelect ? String(prioritySelect.value || "").trim() : "");
+          if (attachment) {
+            scheduleBody.set(
+              "attachment",
+              attachment,
+              attachment.name || `attachment${attachmentMimeExtension(attachment.type)}`
+            );
+          }
+          if (voiceNoteBlob) {
+            scheduleBody.set(
+              "voice_note",
+              voiceNoteBlob,
+              `voice-note${voiceNoteExtension(voiceNoteMimeType)}`
+            );
+          }
           const scheduleResponse = await fetch(voiceNotesPath, {
             method: "POST",
             credentials: "same-origin",
             headers: {
               "Accept": "application/json",
-              "Content-Type": "application/json",
               "Authorization": `Bearer ${authToken}`
             },
-            body: JSON.stringify({
-              action: "schedule_summon",
-              when: scheduleWhenIso,
-              message: scheduleMessage,
-              priority: prioritySelect ? String(prioritySelect.value || "").trim() : ""
-            })
+            body: scheduleBody
           });
           const schedulePayload = await scheduleResponse.json().catch(() => null);
           if (scheduleResponse.status === 401 || (schedulePayload && schedulePayload.session_expired)) {
@@ -2590,6 +2646,7 @@
           scheduleToast = randomErrorMessage(error && error.message ? error.message : "request failed");
           scheduleToastKind = "error";
         } finally {
+          hideUploadProgressModal();
           submitInFlight = false;
           submitButton.disabled = false;
           updateVoiceNoteButtons();
@@ -2601,6 +2658,9 @@
         if (scheduleSucceeded && summonWhenEl) {
           summonWhenEl.value = "";
           textarea.value = "";
+          clearAttachmentSelection();
+          clearVoiceNoteCapture();
+          setVoiceNoteStatus(defaultVoiceNoteStatus);
           updateSummonWhenBounds();
           voiceNotesScheduledRenderSignature = "";
           await refreshAliveFromStatus();
@@ -2890,6 +2950,7 @@
           void scheduleManualAliveCheck();
         });
       }
+      wireDatetimeLocalOpenPickerOnFieldClick(document.getElementById("alive-manual-when"));
     }
 
     function urlBase64ToUint8Array(base64String) {
@@ -3388,6 +3449,22 @@
       el.max = `${maxD.getFullYear()}-${pad(maxD.getMonth() + 1)}-${pad(maxD.getDate())}T${pad(maxD.getHours())}:${pad(maxD.getMinutes())}`;
     }
 
+    function wireDatetimeLocalOpenPickerOnFieldClick(el) {
+      if (!el || el.getAttribute("type") !== "datetime-local") {
+        return;
+      }
+      el.addEventListener("click", () => {
+        if (typeof el.showPicker !== "function") {
+          return;
+        }
+        try {
+          el.showPicker();
+        } catch (err) {
+          /* Picker already open or environment disallows showPicker */
+        }
+      });
+    }
+
     function localDateTimeValueToUtcIso(value) {
       if (!value || typeof value !== "string") {
         return "";
@@ -3522,6 +3599,8 @@
         String((slot && slot.slot_id) || ""),
         String((slot && slot.message) || "").slice(0, 48),
         String((slot && slot.priority) || ""),
+        slot && slot.has_attachment ? "1" : "0",
+        slot && slot.has_voice_note ? "1" : "0",
       ].join("~")).join("|");
       return `${String(searchText || "").trim().toLowerCase()}#${body}`;
     }
@@ -3537,10 +3616,14 @@
       const timeClass = overdue ? "voice-note-card-time voice-note-card-time--due-soon" : "voice-note-card-time";
       const localHint = String((slot && slot.local_time) || "").trim();
       const titleAttr = localHint ? escapeAttribute(`${localHint} (${atRaw})`) : escapeAttribute(atRaw);
+      const hasAttachment = Boolean(slot && slot.has_attachment);
+      const hasVoiceNote = Boolean(slot && slot.has_voice_note);
       const badges = [
         `<span class="voice-note-card-badge ${escapeAttribute(priorityBadgeClass(priority))}">${escapeHtml(priorityBadgeLabel(priority))}</span>`,
         '<span class="voice-note-card-badge scheduled-pill">Scheduled</span>',
-      ].join("");
+        hasAttachment ? `<span class="voice-note-card-badge">${escapeHtml("Attachment")}</span>` : "",
+        hasVoiceNote ? '<span class="voice-note-card-badge">Voice note</span>' : "",
+      ].filter(Boolean).join("");
       const sid = escapeAttribute(String((slot && slot.slot_id) || ""));
       const message = String((slot && slot.message) || "");
       card.style.setProperty("--voice-note-action-count", "1");

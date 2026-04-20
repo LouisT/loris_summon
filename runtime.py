@@ -1532,6 +1532,8 @@ class LorisSummonRuntime:
             ampm = local_when.strftime("%p").lower()
             local_label = f"{hour12}:{minute} {ampm}"
             pri = str(slot.get("priority") or "").strip() or DEFAULT_SUMMON_PRIORITY
+            ap = str(slot.get("attachment_path") or "").strip()
+            vn = str(slot.get("voice_note_path") or "").strip()
             out.append(
                 {
                     "at": when.isoformat(),
@@ -1540,6 +1542,8 @@ class LorisSummonRuntime:
                     "message": str(slot.get("message") or "").strip(),
                     "priority": pri,
                     "slot_id": str(slot.get("id") or "").strip(),
+                    "has_attachment": bool(ap),
+                    "has_voice_note": bool(vn),
                 }
             )
         out.sort(key=lambda x: x["at"])
@@ -1597,20 +1601,42 @@ class LorisSummonRuntime:
         msg = str(slot.get("message") or "").strip() or DEFAULT_SUMMON_MESSAGE
         pri_raw = str(slot.get("priority") or "").strip()
         cleaned_pri = _normalize_priority(pri_raw) or DEFAULT_SUMMON_PRIORITY
+        ap = str(slot.get("attachment_path") or "").strip() or None
+        vn = str(slot.get("voice_note_path") or "").strip() or None
         result = await self.async_trigger(
             msg,
             SUMMON_SOURCE_SCHEDULED,
             priority=cleaned_pri,
+            attachment_path=ap,
+            voice_note_path=vn,
+            voice_note_base_url=None,
         )
         if result.accepted:
             slot["fired"] = True
+            slot.pop("attachment_path", None)
+            slot.pop("voice_note_path", None)
             await self._async_commit_state()
         self._ensure_summon_schedule()
 
+    def discard_upload_paths(
+        self,
+        attachment_path: str | None = None,
+        voice_note_path: str | None = None,
+    ) -> None:
+        """Remove stored upload files (e.g. after a failed schedule or cancelled slot)."""
+        self._delete_attachment_file(attachment_path)
+        self._delete_attachment_file(voice_note_path)
+
     async def async_add_manual_summon_schedule(
-        self, when_raw: str, message_raw: str, priority_raw: str
+        self,
+        when_raw: str,
+        message_raw: str,
+        priority_raw: str,
+        *,
+        attachment_path: str | None = None,
+        voice_note_path: str | None = None,
     ) -> dict[str, Any]:
-        """Queue a summon message at ``when_raw`` (ISO UTC) with optional priority."""
+        """Queue a summon at ``when_raw`` (ISO UTC) with optional priority and media."""
         if not self.hass.is_running:
             return {
                 "ok": False,
@@ -1628,11 +1654,14 @@ class LorisSummonRuntime:
             when = when.replace(tzinfo=dt_util.UTC)
         when = dt_util.as_utc(when)
         message = str(message_raw or "").strip()
-        if not message:
+        ap_raw = str(attachment_path or "").strip()
+        vn_raw = str(voice_note_path or "").strip()
+        has_media = bool(ap_raw) or bool(vn_raw)
+        if not message and not has_media:
             return {
                 "ok": False,
                 "reason": "empty_message",
-                "message_text": "Enter a summon message.",
+                "message_text": "Enter a command or add an attachment or voice note.",
             }
         if len(message) > SUMMON_SCHEDULE_MAX_MESSAGE_LEN:
             return {
@@ -1677,15 +1706,18 @@ class LorisSummonRuntime:
                 ),
             }
         slot_id = uuid4().hex
-        self._summon_manual_slot_list().append(
-            {
-                "id": slot_id,
-                "at": when.isoformat(),
-                "message": message,
-                "priority": cleaned_pri,
-                "fired": False,
-            }
-        )
+        slot: dict[str, Any] = {
+            "id": slot_id,
+            "at": when.isoformat(),
+            "message": message,
+            "priority": cleaned_pri,
+            "fired": False,
+        }
+        if ap_raw:
+            slot["attachment_path"] = ap_raw
+        if vn_raw:
+            slot["voice_note_path"] = vn_raw
+        self._summon_manual_slot_list().append(slot)
         await self._async_commit_state()
         self._notify_state_changed()
         self._ensure_summon_schedule()
@@ -1710,6 +1742,8 @@ class LorisSummonRuntime:
         for m in manual:
             if str(m.get("id") or "").strip() == sid and not m.get("fired"):
                 removed = True
+                self._delete_attachment_file(m.get("attachment_path"))
+                self._delete_attachment_file(m.get("voice_note_path"))
                 continue
             kept.append(m)
         if not removed:

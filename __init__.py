@@ -848,6 +848,63 @@ class LorisSummonVoiceNotesView(LorisSummonView):
         if error is not None or runtime is None or claims is None:
             return error
 
+        ctype = (request.content_type or "").split(";", 1)[0].strip().lower()
+        if ctype == "multipart/form-data":
+            form = await request.post()
+            action = str(form.get("action") or "").strip().lower()
+            if action != "schedule_summon":
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "message_text": "Unsupported multipart request for this endpoint.",
+                    },
+                    status=400,
+                )
+            when = str(form.get("when") or "").strip()
+            message = str(form.get("message") or "")
+            priority = str(form.get("priority") or "").strip()
+            attachment_path: str | None = None
+            voice_note_path: str | None = None
+            try:
+                attachment_path = await _async_store_optional_attachment(
+                    runtime, form.get("attachment")
+                )
+                voice_note_path = await _async_store_optional_voice_note(
+                    runtime, form.get("voice_note")
+                )
+            except ValueError as err:
+                return web.json_response(
+                    {"ok": False, "message_text": _random_error_message(str(err))},
+                    status=400,
+                )
+            result = await runtime.async_add_manual_summon_schedule(
+                when,
+                message,
+                priority,
+                attachment_path=attachment_path,
+                voice_note_path=voice_note_path,
+            )
+            if not result.get("ok"):
+                runtime.discard_upload_paths(attachment_path, voice_note_path)
+                reason = str(result.get("reason") or "")
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "reason": reason,
+                        "message_text": str(
+                            result.get("message_text") or "Could not schedule that summon."
+                        ),
+                    },
+                    status=400,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "slot_id": result.get("slot_id"),
+                    "message_text": str(result.get("message_text") or "Summon scheduled."),
+                }
+            )
+
         data = await _parse_request_body(request)
         action = str(data.get("action", "")).strip().lower()
         if action == "schedule_summon":
