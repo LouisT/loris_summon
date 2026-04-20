@@ -54,7 +54,7 @@ DEFAULT_PUSHOVER_EMERGENCY_EXPIRE = 300
 DEFAULT_PUSHOVER_EMERGENCY_RETRY = 30
 DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 300
 DEFAULT_SUMMON_MESSAGE = "You are summoned. Report immediately."
-DEFAULT_SUMMON_PRIORITY = "normal"
+DEFAULT_SUMMON_PRIORITY = "emergency"
 DEFAULT_TRIGGER_LIGHTS = True
 DEFAULT_WEB_PASSWORD = ""
 DEFAULT_WEB_USERNAME = ""
@@ -106,6 +106,7 @@ SERVICE_REGENERATE_WEB_PUSH_KEYS = "regenerate_web_push_keys"
 
 ACKNOWLEDGE_PATH = "/api/loris_summon/acknowledge"
 ATTACHMENT_FILE_PATH = "/api/loris_summon/attachment/file"
+ATTACHMENT_UPLOAD_MAX_BYTES = 95 * 1024 * 1024
 ICON_PATH = "/api/loris_summon/icon.png"
 PUSHOVER_CALLBACK_PATH = "/api/loris_summon/pushover/callback"
 STATUS_PATH = "/api/loris_summon/status"

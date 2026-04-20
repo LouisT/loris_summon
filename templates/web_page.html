@@ -729,6 +729,14 @@
       color: rgba(255, 255, 255, 0.62);
     }
 
+    .alive-schedule-actions {
+      margin: 0 0 0.65rem;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 0.5rem 0.75rem;
+    }
+
     .alive-schedule-slots {
       margin: 0;
       padding-left: 1.15rem;
@@ -738,6 +746,12 @@
 
     .alive-schedule-slots li {
       margin: 0.22rem 0;
+    }
+
+    .alive-schedule-slots li .alive-schedule-time.alive-schedule-time--past {
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.12em;
     }
 
     .alive-schedule-slots li.alive-schedule-fired {
@@ -900,12 +914,41 @@
       transition: background 0.2s ease, border-color 0.2s ease;
     }
 
+    .alive-row-head {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 0.35rem 0.75rem;
+    }
+
     .alive-row-label {
       font-size: 0.72rem;
       letter-spacing: 0.04em;
       text-transform: uppercase;
       color: var(--alive-row-label);
-      grid-column: 1 / -1;
+    }
+
+    .alive-row-source {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--alive-row-sublabel);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: 999px;
+      padding: 0.1rem 0.5rem;
+      flex-shrink: 0;
+    }
+
+    .alive-row-source--manual {
+      border-color: rgba(var(--accent-rgb), 0.42);
+      color: rgba(255, 255, 255, 0.82);
+    }
+
+    .alive-row-source--scheduled {
+      border-color: rgba(255, 255, 255, 0.2);
     }
 
     .alive-row .voice-note-card-time-label {
@@ -1649,7 +1692,7 @@
                 </div>
                 <input class="visually-hidden-input" id="attachment-camera" type="file" accept="image/*,video/*" capture="environment" tabindex="-1" />
                 <input class="visually-hidden-input" id="attachment" name="attachment" type="file" accept=".png,.jpg,.jpeg,.gif,.webp,.3gp,.avi,.m4v,.mov,.mp4,.mpeg,.mpg,.ogv,.webm,image/*,video/*" tabindex="-1" />
-                <p class="attachment-status" id="attachment-status" aria-live="polite">Images or videos up to 25MB are stored and linked in the notification.</p>
+                <p class="attachment-status" id="attachment-status" aria-live="polite">Images or videos up to 95MB are stored and linked in the notification.</p>
               </div>
             </div>
             <div class="field-group">
@@ -1712,6 +1755,11 @@
             <div class="alive-schedule" aria-labelledby="alive-schedule-heading">
               <h3 class="alive-schedule-title" id="alive-schedule-heading">Today's random check times</h3>
               <p class="alive-schedule-caption" id="alive-schedule-caption">Today's random slots (local Home Assistant time) appear here once loaded.</p>
+              <div class="alive-schedule-actions">
+                <button type="button" class="secondary-button" id="alive-reset-schedule-button" title="Same number of checks per day; picks new random times from about a minute from now through 10:30 p.m. local">
+                  Redraw scheduled times
+                </button>
+              </div>
               <ul class="alive-schedule-slots" id="alive-schedule-slots"></ul>
             </div>
             <div class="alive-list-wrap">
@@ -1771,6 +1819,7 @@
     const aliveSettingsOverlay = document.getElementById("alive-settings-overlay");
     const aliveSettingsCloseButton = document.getElementById("alive-settings-close");
     const aliveFlushHistoryButton = document.getElementById("alive-flush-history-button");
+    const aliveResetScheduleButton = document.getElementById("alive-reset-schedule-button");
     const webPushEnableButton = document.getElementById("web-push-enable");
     const webPushDisableButton = document.getElementById("web-push-disable");
     const webPushStatusEl = document.getElementById("web-push-status");
@@ -1840,12 +1889,12 @@
     const confettiEmitWindowMs = 6000;
     const confettiEccentricity = 10;
     const confettiDeviation = 92;
-    const defaultAttachmentStatus = "Images or videos up to 25MB are stored and linked in the notification.";
+    const defaultAttachmentStatus = "Images or videos up to 95MB are stored and linked in the notification.";
     const defaultVoiceNoteStatus = "Record a voice note to include a playback link in the notification.";
     const supportedImageAttachmentExtensions = [".png", ".jpg", ".jpeg", ".gif", ".webp"];
     const supportedVideoAttachmentExtensions = [".3gp", ".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm"];
     const supportedAttachmentExtensions = [...supportedImageAttachmentExtensions, ...supportedVideoAttachmentExtensions];
-    const attachmentUploadMaxBytes = 25 * 1024 * 1024;
+    const attachmentUploadMaxBytes = 95 * 1024 * 1024;
     const voiceNoteMaxBytes = 75 * 1024 * 1024;
     const voiceNoteMimeCandidates = [
       "audio/webm;codecs=opus",
@@ -1876,6 +1925,7 @@
     let historySnapshotSignature = "";
     let lastStatusPayload = null;
     let aliveRenderSignature = "";
+    let aliveScheduleClockTimer = 0;
     let watchedAliveEventStates = new Map();
     let aliveSendInFlight = false;
     let aliveSettingsEscBound = false;
@@ -2023,7 +2073,7 @@
         return false;
       }
       if (normalizedFile.size > attachmentUploadMaxBytes) {
-        showToast(randomErrorMessage("attachment exceeds the 25 mb upload limit"), "error");
+        showToast(randomErrorMessage("attachment exceeds the 95 mb upload limit"), "error");
         if (!selectedAttachmentFile) {
           setAttachmentStatus(defaultAttachmentStatus);
         }
@@ -2336,7 +2386,7 @@
         return;
       }
       if (attachment && attachment.size > attachmentUploadMaxBytes) {
-        showToast(randomErrorMessage("attachment exceeds the 25 mb upload limit"), "error");
+        showToast(randomErrorMessage("attachment exceeds the 95 mb upload limit"), "error");
         return;
       }
       if (voiceNoteRecorder && voiceNoteRecorder.state !== "inactive") {
@@ -2606,6 +2656,11 @@
       if (aliveFlushHistoryButton) {
         aliveFlushHistoryButton.addEventListener("click", () => {
           void flushAliveHistory();
+        });
+      }
+      if (aliveResetScheduleButton) {
+        aliveResetScheduleButton.addEventListener("click", () => {
+          void resetAliveScheduleTimes();
         });
       }
     }
@@ -2916,6 +2971,7 @@
           item.emergency_acknowledged_after_seconds :
           ""
         ),
+        String(item && item.source ? item.source : ""),
       ].join("~")).join("|");
     }
 
@@ -2973,6 +3029,29 @@
       );
       if (Number.isFinite(t0) && Number.isFinite(t1) && t1 >= t0) {
         return Math.max(0, Math.round((t1 - t0) / 1000));
+      }
+      return null;
+    }
+
+    function aliveCheckSourceChip(item) {
+      const raw = String((item && item.source) || "").trim();
+      if (raw === "alive_manual") {
+        return {
+          text: "Manual",
+          cls: "alive-row-source alive-row-source--manual"
+        };
+      }
+      if (raw === "alive_schedule") {
+        return {
+          text: "Scheduled",
+          cls: "alive-row-source alive-row-source--scheduled"
+        };
+      }
+      if (raw) {
+        return {
+          text: raw.replace(/^alive_/, "").replace(/_/g, " ") || "Other",
+          cls: "alive-row-source alive-row-source--scheduled"
+        };
       }
       return null;
     }
@@ -3045,12 +3124,31 @@
       });
     }
 
+    function stopAliveScheduleClock() {
+      if (!aliveScheduleClockTimer) {
+        return;
+      }
+      window.clearInterval(aliveScheduleClockTimer);
+      aliveScheduleClockTimer = 0;
+    }
+
+    function startAliveScheduleClock() {
+      stopAliveScheduleClock();
+      aliveScheduleClockTimer = window.setInterval(() => {
+        if (activeTab !== "alive" || !lastStatusPayload) {
+          return;
+        }
+        renderAliveSchedule(lastStatusPayload);
+      }, 15000);
+    }
+
     function renderAliveSchedule(payload) {
       const listEl = document.getElementById("alive-schedule-slots");
       const captionEl = document.getElementById("alive-schedule-caption");
       if (!listEl) {
         return;
       }
+      const nowMs = Date.now();
       const day = String((payload && payload.alive_schedule_day) || "").trim();
       const slots = Array.isArray(payload && payload.alive_schedule_slots) ? payload.alive_schedule_slots : [];
       if (captionEl) {
@@ -3078,8 +3176,15 @@
         if (fired) {
           li.classList.add("alive-schedule-fired");
         }
+        const rawAt = String((slot && slot.at) || "").trim();
+        const atMs = rawAt ? Date.parse(rawAt) : NaN;
+        const isPast = Number.isFinite(atMs) && atMs < nowMs;
         const timeSpan = document.createElement("span");
-        timeSpan.textContent = String(slot.local_time || "").trim() || String(slot.at || "").trim() || "—";
+        timeSpan.className = "alive-schedule-time";
+        if (isPast) {
+          timeSpan.classList.add("alive-schedule-time--past");
+        }
+        timeSpan.textContent = String(slot.local_time || "").trim() || rawAt || "—";
         li.appendChild(timeSpan);
         if (fired) {
           const sent = document.createElement("span");
@@ -3124,9 +3229,19 @@
             li.classList.add(aliveAckBandClass(ackSeconds));
           }
         }
+        const head = document.createElement("div");
+        head.className = "alive-row-head";
         const label = document.createElement("div");
         label.className = "alive-row-label";
         label.textContent = "Alive check";
+        head.appendChild(label);
+        const sourceChip = aliveCheckSourceChip(item);
+        if (sourceChip) {
+          const src = document.createElement("span");
+          src.className = sourceChip.cls;
+          src.textContent = sourceChip.text;
+          head.appendChild(src);
+        }
         const sentLabel = document.createElement("div");
         sentLabel.className = "alive-row-time";
         sentLabel.innerHTML = `<span class="voice-note-card-time-label">Sent</span><br><span class="alive-row-time">${escapeHtml(formatVoiceNoteTimestamp(item.triggered_at))}</span>`;
@@ -3169,7 +3284,7 @@
             pillWrap.appendChild(removeBtn);
           }
         }
-        li.appendChild(label);
+        li.appendChild(head);
         li.appendChild(sentLabel);
         li.appendChild(ackLabel);
         li.appendChild(durationCell);
@@ -3408,6 +3523,57 @@
       }
     }
 
+    async function resetAliveScheduleTimes() {
+      if (!aliveResetScheduleButton) {
+        return;
+      }
+      if (!authToken) {
+        showLoginPanel();
+        return;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return;
+        }
+      }
+      aliveResetScheduleButton.disabled = true;
+      try {
+        const response = await fetch(alivePath, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            action: "reset_schedule"
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return;
+        }
+        if (!response.ok || !payload || !payload.ok) {
+          showToast(
+            (payload && payload.message_text) || "Could not redraw scheduled times.",
+            "error"
+          );
+          return;
+        }
+        showToast(payload.message_text || "Scheduled times redrawn.", "success");
+        aliveRenderSignature = "";
+        await refreshAliveFromStatus();
+      } catch (error) {
+        console.error("Lori's Summon alive schedule reset failed", error);
+        showToast(randomErrorMessage("could not redraw schedule"), "error");
+      } finally {
+        aliveResetScheduleButton.disabled = false;
+      }
+    }
+
     function currentVoiceNotesQuery() {
       return {
         search: String((voiceNotesSearchInput && voiceNotesSearchInput.value) || "").trim(),
@@ -3540,6 +3706,7 @@
     async function activateTab(tabName, {
       syncUrl = true
     } = {}) {
+      stopAliveScheduleClock();
       if (tabName === "voice-notes" || tabName === "sent-summons") {
         activeTab = "voice-notes";
       } else if (tabName === "alive") {
@@ -3560,6 +3727,7 @@
         } else {
           await refreshAliveFromStatus();
         }
+        startAliveScheduleClock();
       }
       if (syncUrl) {
         syncUrlHashForTab(activeTab);
@@ -4316,6 +4484,7 @@
     }
 
     function showLoginPanel(message = defaultLoginStatus) {
+      stopAliveScheduleClock();
       closeAliveSettingsModal();
       disconnectStatusStream();
       clearStatusReconnect();
@@ -4346,6 +4515,9 @@
       }
       if (aliveScheduleSlots) {
         aliveScheduleSlots.innerHTML = "";
+      }
+      if (aliveResetScheduleButton) {
+        aliveResetScheduleButton.disabled = false;
       }
       webPushLocalSubscribed = false;
       refreshWebPushButtonVisibility();
@@ -4410,7 +4582,7 @@
         "rate limited": "rate limit",
         "attachment is empty": "attachment was empty",
         "attachment is not a supported image or video": "attachment must be an image or video file",
-        "attachment exceeds the 25 mb upload limit": "attachment exceeds the 25 MB upload limit",
+        "attachment exceeds the 95 mb upload limit": "attachment exceeds the 95 MB upload limit",
         "voice note is empty": "voice note was empty",
         "voice note is not a supported audio file": "voice note must be an audio file",
         "voice note exceeds the 75 mb upload limit": "voice note exceeds the 75 MB upload limit",

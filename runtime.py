@@ -46,6 +46,7 @@ from .const import (
     ALIVE_SOURCE_MANUAL,
     ALIVE_SOURCE_SCHEDULE,
     ATTACHMENT_FILE_PATH,
+    ATTACHMENT_UPLOAD_MAX_BYTES,
     ATTR_ACKNOWLEDGED_AT,
     ATTR_ACKNOWLEDGED_BY,
     ATTR_ACTIVE,
@@ -184,7 +185,6 @@ SUMMARY_MATCHING_EVENT = "matching_event"
 SUMMARY_WATCHED_EVENTS = "watched_events"
 WEB_JWT_MAX_AGE_SECONDS = 604800
 WEB_JWT_REFRESH_WINDOW_SECONDS = 43200
-ATTACHMENT_UPLOAD_MAX_BYTES = 26_214_400
 VOICE_NOTE_MAX_BYTES = 78_643_200
 IMAGE_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png", ".webp"}
 VIDEO_SUFFIXES = {".3gp", ".avi", ".m4v", ".mov", ".mp4", ".mpeg", ".mpg", ".ogv", ".webm"}
@@ -288,7 +288,7 @@ def _normalize_attachment_upload(
     if kind is None:
         raise ValueError("attachment is not a supported image or video")
     if len(data) > ATTACHMENT_UPLOAD_MAX_BYTES:
-        raise ValueError("attachment exceeds the 25 MB upload limit")
+        raise ValueError("attachment exceeds the 95 MB upload limit")
     if kind == "image":
         try:
             with Image.open(BytesIO(data)) as image:
@@ -1058,24 +1058,10 @@ class LorisSummonRuntime:
         out.sort(key=lambda x: x["at"])
         return out
 
-    def _alive_spread_utc_times_in_local_window(
-        self,
-        target_date: date,
-        win_start: time,
-        win_end: time,
-        tz,
-        count: int,
-    ) -> list[datetime]:
-        """Place `count` UTC instants across the local window with spacing from the window span.
-
-        The window [win_start, win_end] is split into ``count + 1`` equal parts; each scheduled
-        time is picked near the center of one part (with jitter bounded by half a part), so
-        minimum separation scales with ``count`` and the chosen day window.
-        """
-        start_local = datetime.combine(target_date, win_start, tzinfo=tz)
-        end_local = datetime.combine(target_date, win_end, tzinfo=tz)
-        a = dt_util.as_utc(start_local)
-        b = dt_util.as_utc(end_local)
+    def _alive_spread_utc_between(self, start_utc: datetime, end_utc: datetime, count: int) -> list[datetime]:
+        """Spread ``count`` UTC instants between ``start_utc`` and ``end_utc`` (see local-window helper)."""
+        a = dt_util.as_utc(start_utc)
+        b = dt_util.as_utc(end_utc)
         span_sec = max(0, int((b - a).total_seconds()))
         if count <= 0:
             return []
@@ -1095,6 +1081,28 @@ class LorisSummonRuntime:
         times.sort()
         return times
 
+    def _alive_spread_utc_times_in_local_window(
+        self,
+        target_date: date,
+        win_start: time,
+        win_end: time,
+        tz,
+        count: int,
+    ) -> list[datetime]:
+        """Place `count` UTC instants across the local window with spacing from the window span.
+
+        The window [win_start, win_end] is split into ``count + 1`` equal parts; each scheduled
+        time is picked near the center of one part (with jitter bounded by half a part), so
+        minimum separation scales with ``count`` and the chosen day window.
+        """
+        start_local = datetime.combine(target_date, win_start, tzinfo=tz)
+        end_local = datetime.combine(target_date, win_end, tzinfo=tz)
+        return self._alive_spread_utc_between(
+            dt_util.as_utc(start_local),
+            dt_util.as_utc(end_local),
+            count,
+        )
+
     def _build_new_alive_schedule(self, day_anchor: datetime, tz) -> dict[str, Any]:
         target_date = day_anchor.date()
         per_day = self._alive_checks_per_day()
@@ -1112,6 +1120,77 @@ class LorisSummonRuntime:
             "day": target_date.isoformat(),
             "slots": slots,
             "scheduled_per_day": per_day,
+        }
+
+    def _alive_regenerated_schedule_blob(self) -> tuple[dict[str, Any] | None, str | None]:
+        """Build a fresh schedule blob for the current schedule day, starting after a short lead time.
+
+        Returns ``(blob, None)`` on success, or ``(None, reason)`` when no window remains
+        (e.g. too late in the 10:30 p.m. local cutoff).
+        """
+        tz = self._time_zone()
+        day_anchor = self._alive_schedule_target_local_date()
+        target_date = day_anchor.date()
+        per_day = self._alive_checks_per_day()
+        day_key = target_date.isoformat()
+        if per_day <= 0:
+            return (
+                {
+                    "day": day_key,
+                    "slots": [],
+                    "scheduled_per_day": 0,
+                },
+                None,
+            )
+        day_start_local = datetime.combine(target_date, time(8, 30), tzinfo=tz)
+        day_end_local = datetime.combine(target_date, time(22, 30), tzinfo=tz)
+        now_local = dt_util.now(tz)
+        start_floor = max(day_start_local, now_local + timedelta(seconds=90))
+        start_utc = dt_util.as_utc(start_floor)
+        end_utc = dt_util.as_utc(day_end_local)
+        if start_utc >= end_utc:
+            return None, "day_window_closed"
+        fire_times = self._alive_spread_utc_between(start_utc, end_utc, per_day)
+        return (
+            {
+                "day": day_key,
+                "slots": [{"at": t.isoformat(), "fired": False} for t in fire_times],
+                "scheduled_per_day": per_day,
+            },
+            None,
+        )
+
+    async def async_reset_alive_schedule(self) -> dict[str, Any]:
+        """Redraw today's scheduled alive check times (same count; does not send a check)."""
+        if not self.hass.is_running:
+            return {
+                "ok": False,
+                "reason": "not_running",
+                "message_text": "Home Assistant is not running.",
+            }
+        blob, err = self._alive_regenerated_schedule_blob()
+        if err == "day_window_closed":
+            return {
+                "ok": False,
+                "reason": err,
+                "message_text": (
+                    "Too late in the day to redraw times (after 10:30 p.m. local cutoff)."
+                ),
+            }
+        if blob is None:
+            return {
+                "ok": False,
+                "reason": "unknown",
+                "message_text": "Could not redraw scheduled times.",
+            }
+        self._cancel_alive_schedule_handles()
+        self._alive_schedule_blob = blob
+        await self._async_commit_state()
+        self._notify_state_changed()
+        self._ensure_alive_schedule()
+        return {
+            "ok": True,
+            "message_text": "Scheduled alive check times were redrawn.",
         }
 
     def _ensure_alive_schedule(self) -> None:

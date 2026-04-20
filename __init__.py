@@ -725,6 +725,29 @@ class LorisSummonAliveView(LorisSummonView):
                     ),
                 }
             )
+        if action == "reset_schedule":
+            result = await runtime.async_reset_alive_schedule()
+            if not result.get("ok"):
+                reason = str(result.get("reason") or "")
+                status = 409 if reason == "day_window_closed" else 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "reason": reason,
+                        "message_text": str(
+                            result.get("message_text") or "Could not redraw scheduled times."
+                        ),
+                    },
+                    status=status,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "message_text": str(
+                        result.get("message_text") or "Scheduled alive check times were redrawn."
+                    ),
+                }
+            )
         return web.json_response(
             {"ok": False, "message_text": "Unknown alive check action."},
             status=400,
@@ -1368,7 +1391,7 @@ def _human_error_reason(reason: str) -> str:
         "rate limited": "rate limit",
         "attachment is empty": "attachment was empty",
         "attachment is not a supported image or video": "attachment must be an image or video file",
-        "attachment exceeds the 25 mb upload limit": "attachment exceeds the 25 MB upload limit",
+        "attachment exceeds the 95 mb upload limit": "attachment exceeds the 95 MB upload limit",
         "voice note is empty": "voice note was empty",
         "voice note is not a supported audio file": "voice note must be an audio file",
         "voice note exceeds the 75 mb upload limit": "voice note exceeds the 75 MB upload limit",
