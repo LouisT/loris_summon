@@ -564,13 +564,22 @@
       accent-color: var(--accent);
     }
 
+    .app-tabs-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0 0 20px;
+    }
+
     .app-tabs {
       display: flex;
       align-items: stretch;
       gap: 0;
-      margin: 0 0 20px;
+      margin: 0;
       padding: 0;
       border-bottom: 1px solid rgba(var(--accent-rgb), 0.2);
+      flex: 1 1 auto;
+      min-width: 0;
     }
 
     .web-push-bar {
@@ -587,7 +596,6 @@
     }
 
     .web-push-copy strong {
-      display: block;
       margin-bottom: 4px;
       font-size: 0.92rem;
     }
@@ -672,20 +680,8 @@
       margin-bottom: 1rem;
     }
 
-    .alive-toolbar-head {
-      display: flex;
-      align-items: flex-start;
-      gap: 0.5rem;
-    }
-
-    .alive-toolbar-head .alive-intro {
-      flex: 1;
-      min-width: 0;
-    }
-
     .alive-settings-button {
       flex-shrink: 0;
-      margin-top: 0.1rem;
       width: 44px;
       height: 44px;
       padding: 0;
@@ -780,6 +776,13 @@
 
     .web-push-bar--modal {
       margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    .web-push-bar--modal .web-push-desc {
+      max-width: none;
     }
 
     .alive-modal-section {
@@ -1429,8 +1432,7 @@
         width: 100%;
       }
 
-      .app-tabs {
-        display: flex;
+      .app-tabs-wrap {
         margin-bottom: 16px;
       }
 
@@ -1561,10 +1563,17 @@
         </form>
       </section>
       <section class="hidden" id="app-panel">
-        <div class="app-tabs" role="tablist" aria-label="Summon tabs">
-          <button class="tab-button active" id="tab-summon" type="button" data-tab="summon" role="tab" aria-selected="true" aria-controls="summon-panel">Summon</button>
-          <button class="tab-button" id="tab-voice-notes" type="button" data-tab="voice-notes" role="tab" aria-selected="false" aria-controls="voice-notes-panel">Sent Summons</button>
-          <button class="tab-button" id="tab-alive" type="button" data-tab="alive" role="tab" aria-selected="false" aria-controls="alive-panel">Alive</button>
+        <div class="app-tabs-wrap">
+          <div class="app-tabs" role="tablist" aria-label="Summon tabs">
+            <button class="tab-button active" id="tab-summon" type="button" data-tab="summon" role="tab" aria-selected="true" aria-controls="summon-panel">Summon</button>
+            <button class="tab-button" id="tab-voice-notes" type="button" data-tab="voice-notes" role="tab" aria-selected="false" aria-controls="voice-notes-panel">Sent Summons</button>
+            <button class="tab-button" id="tab-alive" type="button" data-tab="alive" role="tab" aria-selected="false" aria-controls="alive-panel">Alive</button>
+          </div>
+          <button type="button" class="icon-text-button alive-settings-button" id="alive-settings-open" aria-label="Alerts and alive options" title="Alerts and alive options">
+            <svg class="alive-cog-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
+              <path fill="currentColor" fill-rule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567l-.291 1.807a4.67 4.67 0 0 0-1.396.22l-1.51-1.51a1.75 1.75 0 0 0-2.474 0L3.22 5.47a1.75 1.75 0 0 0 0 2.474l1.51 1.51a4.67 4.67 0 0 0-.22 1.396l-1.807.291A1.75 1.75 0 0 0 2.25 12.922c0 .917.663 1.699 1.567 1.85l1.807.291c.084.477.198.935.35 1.367l-1.51 1.51a1.75 1.75 0 0 0 0 2.474l1.06 1.06a1.75 1.75 0 0 0 2.474 0l1.51-1.51c.432.152.89.266 1.367.35l.291 1.807A1.75 1.75 0 0 0 12.922 21.75c.917 0 1.699-.663 1.85-1.567l.291-1.807a4.67 4.67 0 0 0 1.396-.22l1.51 1.51a1.75 1.75 0 0 0 2.474 0l1.06-1.06a1.75 1.75 0 0 0 0-2.474l-1.51-1.51c.152-.432.266-.89.35-1.367l1.807-.291A1.75 1.75 0 0 0 21.75 11.078c0-.917-.663-1.699-1.567-1.85l-1.807-.291a4.67 4.67 0 0 0-.22-1.396l1.51-1.51a1.75 1.75 0 0 0 0-2.474l-1.06-1.06a1.75 1.75 0 0 0-2.474 0l-1.51 1.51a4.67 4.67 0 0 0-1.396-.22l-.291-1.807A1.75 1.75 0 0 0 12.922 2.25H11.078ZM12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z" clip-rule="evenodd" />
+            </svg>
+          </button>
         </div>
         <section class="tab-panel" id="summon-panel" role="tabpanel" aria-labelledby="tab-summon">
           <form id="summon-form" method="post" enctype="multipart/form-data">
@@ -1651,14 +1660,7 @@
         <section class="tab-panel hidden" id="alive-panel" role="tabpanel" aria-labelledby="tab-alive">
           <div class="alive-shell">
             <div class="alive-toolbar">
-              <div class="alive-toolbar-head">
-                <p class="alive-intro" id="alive-intro">Emergency Pushover checks with acknowledgment. Scheduled checks use the daily count from integration options, at random times between 8:30&nbsp;a.m. and 10:30&nbsp;p.m. (local Home Assistant time), plus any manual sends below.</p>
-                <button type="button" class="icon-text-button alive-settings-button" id="alive-settings-open" aria-label="Alive options" title="Alive options">
-                  <svg class="alive-cog-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-                    <path fill="currentColor" fill-rule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567l-.291 1.807a4.67 4.67 0 0 0-1.396.22l-1.51-1.51a1.75 1.75 0 0 0-2.474 0L3.22 5.47a1.75 1.75 0 0 0 0 2.474l1.51 1.51a4.67 4.67 0 0 0-.22 1.396l-1.807.291A1.75 1.75 0 0 0 2.25 12.922c0 .917.663 1.699 1.567 1.85l1.807.291c.084.477.198.935.35 1.367l-1.51 1.51a1.75 1.75 0 0 0 0 2.474l1.06 1.06a1.75 1.75 0 0 0 2.474 0l1.51-1.51c.432.152.89.266 1.367.35l.291 1.807A1.75 1.75 0 0 0 12.922 21.75c.917 0 1.699-.663 1.85-1.567l.291-1.807a4.67 4.67 0 0 0 1.396-.22l1.51 1.51a1.75 1.75 0 0 0 2.474 0l1.06-1.06a1.75 1.75 0 0 0 0-2.474l-1.51-1.51c.152-.432.266-.89.35-1.367l1.807-.291A1.75 1.75 0 0 0 21.75 11.078c0-.917-.663-1.699-1.567-1.85l-1.807-.291a4.67 4.67 0 0 0-.22-1.396l1.51-1.51a1.75 1.75 0 0 0 0-2.474l-1.06-1.06a1.75 1.75 0 0 0-2.474 0l-1.51 1.51a4.67 4.67 0 0 0-1.396-.22l-.291-1.807A1.75 1.75 0 0 0 12.922 2.25H11.078ZM12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z" clip-rule="evenodd" />
-                  </svg>
-                </button>
-              </div>
+              <p class="alive-intro" id="alive-intro">Emergency Pushover checks with acknowledgment. Scheduled checks use the daily count from integration options, at random times between 8:30&nbsp;a.m. and 10:30&nbsp;p.m. (local Home Assistant time), plus any manual sends below.</p>
               <div class="alive-toolbar-actions">
                 <button class="secondary-button" id="alive-send-button" type="button">Send alive check now</button>
                 <p class="alive-toolbar-status" id="alive-toolbar-status" aria-live="polite"></p>
@@ -1674,14 +1676,14 @@
         <div class="modal-overlay hidden" id="alive-settings-overlay" aria-hidden="true">
           <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="alive-settings-title" tabindex="-1">
             <div class="modal-header">
-              <h2 class="modal-title" id="alive-settings-title">Alive options</h2>
+              <h2 class="modal-title" id="alive-settings-title">Settings</h2>
               <button type="button" class="modal-close" id="alive-settings-close" aria-label="Close">&times;</button>
             </div>
             <div class="modal-body">
               <div class="web-push-bar web-push-bar--modal" id="web-push-bar">
                 <div class="web-push-copy">
                   <strong>Browser alerts</strong>
-                  <span class="web-push-desc">Subscribe on this device to get a browser notification when a Pushover <em>emergency</em> expires with no acknowledgment (summons and Alive checks). Use <strong>Unsubscribe</strong> to turn off alerts on this browser and remove its registration from the server.</span>
+                  <span class="web-push-desc">Subscribe on this device to get a browser notification when a Pushover <em>emergency</em> expires with no acknowledgment (summons and alive checks). Use <strong>Unsubscribe</strong> to turn off alerts on this browser and remove its registration from the server.</span>
                 </div>
                 <div class="web-push-actions">
                   <button type="button" class="secondary-button" id="web-push-enable">Enable alerts</button>
