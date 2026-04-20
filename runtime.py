@@ -6,7 +6,7 @@ import asyncio
 import base64
 import dataclasses
 from collections.abc import Callable
-from datetime import datetime, time, timedelta
+from datetime import date, datetime, time, timedelta
 import html
 import hashlib
 import hmac
@@ -1058,21 +1058,55 @@ class LorisSummonRuntime:
         out.sort(key=lambda x: x["at"])
         return out
 
+    def _alive_spread_utc_times_in_local_window(
+        self,
+        target_date: date,
+        win_start: time,
+        win_end: time,
+        tz,
+        count: int,
+    ) -> list[datetime]:
+        """Place `count` UTC instants across the local window with spacing from the window span.
+
+        The window [win_start, win_end] is split into ``count + 1`` equal parts; each scheduled
+        time is picked near the center of one part (with jitter bounded by half a part), so
+        minimum separation scales with ``count`` and the chosen day window.
+        """
+        start_local = datetime.combine(target_date, win_start, tzinfo=tz)
+        end_local = datetime.combine(target_date, win_end, tzinfo=tz)
+        a = dt_util.as_utc(start_local)
+        b = dt_util.as_utc(end_local)
+        span_sec = max(0, int((b - a).total_seconds()))
+        if count <= 0:
+            return []
+        if span_sec <= 0:
+            return [a] * count
+        if count == 1:
+            return [a + timedelta(seconds=random.randint(0, span_sec))]
+        times: list[datetime] = []
+        for i in range(1, count + 1):
+            frac = i / (count + 1)
+            center_sec = span_sec * frac
+            half_slot = span_sec / (2 * (count + 1))
+            jitter = random.uniform(-half_slot, half_slot)
+            sec = int(round(center_sec + jitter))
+            sec = max(0, min(span_sec, sec))
+            times.append(a + timedelta(seconds=sec))
+        times.sort()
+        return times
+
     def _build_new_alive_schedule(self, day_anchor: datetime, tz) -> dict[str, Any]:
         target_date = day_anchor.date()
-        start_local = datetime.combine(target_date, time(8, 30), tzinfo=tz)
-        end_local = datetime.combine(target_date, time(22, 30), tzinfo=tz)
-        start_utc = dt_util.as_utc(start_local)
-        end_utc = dt_util.as_utc(end_local)
-        span = max(0, int((end_utc - start_utc).total_seconds()))
         per_day = self._alive_checks_per_day()
-        if span <= 0:
-            fire_times = [start_utc] * per_day
-        else:
-            pool = span + 1
-            sample_n = min(per_day, pool)
-            offsets = sorted(random.sample(range(pool), sample_n))
-            fire_times = [start_utc + timedelta(seconds=int(o)) for o in offsets]
+        day_start = time(8, 30)
+        day_end = time(22, 30)
+        fire_times = (
+            self._alive_spread_utc_times_in_local_window(
+                target_date, day_start, day_end, tz, per_day
+            )
+            if per_day > 0
+            else []
+        )
         slots = [{"at": t.isoformat(), "fired": False} for t in fire_times]
         return {
             "day": target_date.isoformat(),

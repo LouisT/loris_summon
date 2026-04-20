@@ -1703,7 +1703,7 @@
         <section class="tab-panel hidden" id="alive-panel" role="tabpanel" aria-labelledby="tab-alive">
           <div class="alive-shell">
             <div class="alive-toolbar">
-              <p class="alive-intro" id="alive-intro">Emergency Pushover checks with acknowledgment. Scheduled checks use the daily count from integration options, at random times between 8:30&nbsp;a.m. and 10:30&nbsp;p.m. (local Home Assistant time), plus any manual sends below.</p>
+              <p class="alive-intro" id="alive-intro">Emergency Pushover checks with acknowledgment. Scheduled checks use the daily count from integration options: times fall between 8:30&nbsp;a.m. and 10:30&nbsp;p.m. (local Home Assistant time), spaced so gaps scale with how many checks you configure, plus any manual sends below.</p>
               <div class="alive-toolbar-actions">
                 <button class="secondary-button" id="alive-send-button" type="button">Send alive check now</button>
                 <p class="alive-toolbar-status" id="alive-toolbar-status" aria-live="polite"></p>
@@ -3190,7 +3190,7 @@
       }
       const noun = n === 1 ? "check" : "checks";
       el.textContent =
-        `Emergency Pushover checks with acknowledgment. Up to ${n} scheduled ${noun} run per day at random times between 8:30 a.m. and 10:30 p.m. (local Home Assistant time), plus any manual sends below.`;
+        `Emergency Pushover checks with acknowledgment. Up to ${n} scheduled ${noun} run per day between 8:30 a.m. and 10:30 p.m. (local Home Assistant time), with spacing that scales to the count so checks stay spread out, plus any manual sends below.`;
     }
 
     function syncAlivePanel(payload) {
