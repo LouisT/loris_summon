@@ -1162,7 +1162,7 @@ class LorisSummonRuntime:
             {
                 "title": title,
                 "body": body,
-                "path": WEB_PATH,
+                "path": f"{WEB_PATH}#{'alive' if is_alive else 'sent-summons'}",
                 "tag": f"loris-{event_id}-{'alive' if is_alive else 'summon'}",
                 "icon": ICON_PATH,
             },

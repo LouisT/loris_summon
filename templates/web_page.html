@@ -3319,17 +3319,36 @@
       updateVoiceNotesSentinel();
     }
 
-    const DEEP_LINK_TAB_IDS = new Set(["summon", "voice-notes", "alive"]);
+    const DEEP_LINK_TAB_IDS = new Set(["summon", "sent-summons", "voice-notes", "alive"]);
+
+    function tabFromDeepLink(rawTab) {
+      const normalized = String(rawTab || "").trim().toLowerCase();
+      if (!normalized) {
+        return null;
+      }
+      if (normalized === "sent-summons" || normalized === "voice-notes") {
+        return "voice-notes";
+      }
+      if (normalized === "alive") {
+        return "alive";
+      }
+      if (normalized === "summon") {
+        return "summon";
+      }
+      return null;
+    }
 
     function readPreferredTabFromLocation() {
-      const fromHash = String(window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
-      if (fromHash && DEEP_LINK_TAB_IDS.has(fromHash)) {
+      const fromHash = tabFromDeepLink(
+        String(window.location.hash || "").replace(/^#/, "")
+      );
+      if (fromHash) {
         return fromHash;
       }
       try {
         const queryTab = new URLSearchParams(window.location.search).get("tab");
-        const normalized = String(queryTab || "").trim().toLowerCase();
-        if (normalized && DEEP_LINK_TAB_IDS.has(normalized)) {
+        const normalized = tabFromDeepLink(queryTab);
+        if (normalized) {
           return normalized;
         }
       } catch (error) {
@@ -3340,8 +3359,8 @@
 
     function syncUrlHashForTab(tabName) {
       let nextTab = "summon";
-      if (tabName === "voice-notes") {
-        nextTab = "voice-notes";
+      if (tabName === "voice-notes" || tabName === "sent-summons") {
+        nextTab = "sent-summons";
       } else if (tabName === "alive") {
         nextTab = "alive";
       }
@@ -3368,8 +3387,12 @@
 
     async function activateTabFromUrlOnBoot() {
       const rawHash = String(window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
-      if (rawHash && !DEEP_LINK_TAB_IDS.has(rawHash)) {
+      const normalizedHashTab = tabFromDeepLink(rawHash);
+      if (rawHash && !normalizedHashTab && !DEEP_LINK_TAB_IDS.has(rawHash)) {
         syncUrlHashForTab("summon");
+      } else if (rawHash && normalizedHashTab) {
+        // Keep legacy #voice-notes links working while normalizing the URL to #sent-summons.
+        syncUrlHashForTab(normalizedHashTab);
       }
       const tab = readPreferredTabFromLocation() || "summon";
       await activateTab(tab, {
@@ -3382,15 +3405,15 @@
         return;
       }
       const rawHash = String(window.location.hash || "").replace(/^#/, "").trim().toLowerCase();
-      if (rawHash && !DEEP_LINK_TAB_IDS.has(rawHash)) {
+      const normalizedHashTab = tabFromDeepLink(rawHash);
+      if (rawHash && !normalizedHashTab && !DEEP_LINK_TAB_IDS.has(rawHash)) {
         syncUrlHashForTab("summon");
         void activateTab("summon", {
           syncUrl: false
         });
         return;
       }
-      const preferred = readPreferredTabFromLocation();
-      const next = preferred || "summon";
+      const next = normalizedHashTab || "summon";
       if (next === activeTab) {
         return;
       }
@@ -3402,7 +3425,7 @@
     async function activateTab(tabName, {
       syncUrl = true
     } = {}) {
-      if (tabName === "voice-notes") {
+      if (tabName === "voice-notes" || tabName === "sent-summons") {
         activeTab = "voice-notes";
       } else if (tabName === "alive") {
         activeTab = "alive";

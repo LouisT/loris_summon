@@ -34,19 +34,34 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   const path = (event.notification.data && event.notification.data.path) || "/api/loris_summon/web";
-  const url = new URL(path, self.location.origin).href;
+  const targetUrl = new URL(path, self.location.origin);
+  const targetHref = targetUrl.href;
   event.waitUntil(
     self.clients.matchAll({
       type: "window",
       includeUncontrolled: true
     }).then((clientList) => {
+      const targetPathWithSearch = `${targetUrl.pathname}${targetUrl.search}`;
       for (const client of clientList) {
-        if (client.url === url && "focus" in client) {
-          return client.focus();
+        let clientPathWithSearch = "";
+        try {
+          const clientUrl = new URL(client.url);
+          clientPathWithSearch = `${clientUrl.pathname}${clientUrl.search}`;
+        } catch (err) {
+          clientPathWithSearch = "";
+        }
+        if (clientPathWithSearch === targetPathWithSearch) {
+          if ("navigate" in client) {
+            return client.navigate(targetHref).then(() => client.focus());
+          }
+          if ("focus" in client) {
+            return client.focus();
+          }
+          return undefined;
         }
       }
       if (self.clients.openWindow) {
-        return self.clients.openWindow(url);
+        return self.clients.openWindow(targetHref);
       }
       return undefined;
     })
