@@ -737,6 +737,48 @@
       gap: 0.5rem 0.75rem;
     }
 
+    .alive-schedule-manual {
+      margin: 0 0 0.85rem;
+      padding: 0.65rem 0.75rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.07);
+      background: rgba(0, 0, 0, 0.12);
+    }
+
+    .alive-schedule-subtitle {
+      margin: 0 0 0.4rem;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .alive-schedule-manual-hint {
+      margin: 0 0 0.55rem;
+      font-size: 0.75rem;
+      line-height: 1.35;
+      color: rgba(255, 255, 255, 0.52);
+    }
+
+    .alive-schedule-manual-when {
+      display: block;
+      width: 100%;
+      max-width: 22rem;
+      margin-bottom: 0.45rem;
+    }
+
+    .alive-schedule-manual-message {
+      display: block;
+      width: 100%;
+      max-width: 28rem;
+      min-height: 4.5rem;
+      margin-bottom: 0.45rem;
+      resize: vertical;
+    }
+
+    .alive-schedule-manual-actions {
+      margin-top: 0.35rem;
+    }
+
     .alive-schedule-slots {
       margin: 0;
       padding-left: 1.15rem;
@@ -746,6 +788,30 @@
 
     .alive-schedule-slots li {
       margin: 0.22rem 0;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      gap: 0.25rem 0.5rem;
+    }
+
+    .alive-schedule-slots li.alive-schedule-slot--manual {
+      border-left: 2px solid rgba(var(--accent-rgb), 0.45);
+      padding-left: 0.45rem;
+      margin-left: -0.45rem;
+    }
+
+    .alive-schedule-msg {
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.55);
+      flex: 1 1 12rem;
+      min-width: 0;
+    }
+
+    .alive-schedule-unschedule {
+      font-size: 0.72rem;
+      padding: 0.15rem 0.45rem;
+      min-height: 0;
+      border-radius: 8px;
     }
 
     .alive-schedule-slots li .alive-schedule-time.alive-schedule-time--past {
@@ -762,6 +828,44 @@
       margin-left: 0.35rem;
       font-size: 0.78rem;
       color: rgba(255, 255, 255, 0.42);
+    }
+
+    .summon-when-input {
+      display: block;
+      width: 100%;
+      max-width: 22rem;
+    }
+
+    .summon-when-hint {
+      margin: 0.35rem 0 0;
+      max-width: 36rem;
+      font-size: 0.78rem;
+      line-height: 1.35;
+      color: rgba(255, 255, 255, 0.52);
+    }
+
+    .voice-notes-scheduled-region {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 0.85rem;
+    }
+
+    .voice-note-card--scheduled {
+      border-color: rgba(120, 160, 255, 0.38);
+      background: rgba(120, 160, 255, 0.06);
+    }
+
+    .voice-note-card-badge.scheduled-pill {
+      border-color: rgba(120, 160, 255, 0.45);
+      background: rgba(120, 160, 255, 0.22);
+      color: rgba(230, 238, 255, 0.96);
+    }
+
+    .voice-note-card-time.voice-note-card-time--due-soon {
+      text-decoration: line-through;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 0.12em;
     }
 
     .modal-overlay {
@@ -1683,6 +1787,11 @@
               </div>
             </div>
             <div class="field-group">
+              <label for="summon-when">Send later (optional)</label>
+              <input class="summon-when-input" id="summon-when" name="summon_when" type="datetime-local" autocomplete="off" />
+              <p class="summon-when-hint">If set, this command is queued for that time instead of sending now. Uses your browser's local timezone. Clear the date to send immediately. Not available with an attachment or voice note.</p>
+            </div>
+            <div class="field-group">
               <label for="attachment">ATTACHMENT (optional)</label>
               <div class="attachment-shell">
                 <div class="attachment-actions">
@@ -1739,6 +1848,7 @@
           </div>
           <div class="voice-notes-shell" id="voice-notes-shell">
             <p class="voice-notes-status" id="voice-notes-status">Open this tab to load sent summons.</p>
+            <div class="voice-notes-scheduled-region" id="voice-notes-scheduled-region" aria-label="Scheduled summons"></div>
             <div class="voice-notes-list" id="voice-notes-list"></div>
             <div class="voice-notes-sentinel hidden" id="voice-notes-sentinel" aria-hidden="true"></div>
           </div>
@@ -1753,12 +1863,23 @@
               </div>
             </div>
             <div class="alive-schedule" aria-labelledby="alive-schedule-heading">
-              <h3 class="alive-schedule-title" id="alive-schedule-heading">Today's random check times</h3>
+              <h3 class="alive-schedule-title" id="alive-schedule-heading">Scheduled check times</h3>
               <p class="alive-schedule-caption" id="alive-schedule-caption">Today's random slots (local Home Assistant time) appear here once loaded.</p>
               <div class="alive-schedule-actions">
                 <button type="button" class="secondary-button" id="alive-reset-schedule-button" title="Same number of checks per day; picks new random times from about a minute from now through 10:30 p.m. local">
                   Redraw scheduled times
                 </button>
+              </div>
+              <div class="alive-schedule-manual">
+                <h4 class="alive-schedule-subtitle">Schedule a custom check</h4>
+                <p class="alive-schedule-manual-hint">Pick a time in your browser's local timezone and the message shown in Pushover. Up to 14 days ahead.</p>
+                <label for="alive-manual-when">When</label>
+                <input class="alive-schedule-manual-when" id="alive-manual-when" type="datetime-local" autocomplete="off" />
+                <label for="alive-manual-message">Notification message</label>
+                <textarea class="alive-schedule-manual-message" id="alive-manual-message" maxlength="500" rows="3" placeholder="Shown as the Pushover notification body"></textarea>
+                <div class="alive-schedule-manual-actions">
+                  <button type="button" class="secondary-button" id="alive-manual-schedule-button">Add to schedule</button>
+                </div>
               </div>
               <ul class="alive-schedule-slots" id="alive-schedule-slots"></ul>
             </div>
@@ -1820,6 +1941,7 @@
     const aliveSettingsCloseButton = document.getElementById("alive-settings-close");
     const aliveFlushHistoryButton = document.getElementById("alive-flush-history-button");
     const aliveResetScheduleButton = document.getElementById("alive-reset-schedule-button");
+    const aliveManualScheduleButton = document.getElementById("alive-manual-schedule-button");
     const webPushEnableButton = document.getElementById("web-push-enable");
     const webPushDisableButton = document.getElementById("web-push-disable");
     const webPushStatusEl = document.getElementById("web-push-status");
@@ -1925,6 +2047,7 @@
     let historySnapshotSignature = "";
     let lastStatusPayload = null;
     let aliveRenderSignature = "";
+    let voiceNotesScheduledRenderSignature = "";
     let aliveScheduleClockTimer = 0;
     let watchedAliveEventStates = new Map();
     let aliveSendInFlight = false;
@@ -2404,6 +2527,88 @@
         return;
       }
 
+      const summonWhenEl = document.getElementById("summon-when");
+      const scheduleWhenIso = summonWhenEl ? localDateTimeValueToUtcIso(String(summonWhenEl.value || "").trim()) : "";
+      if (scheduleWhenIso) {
+        if (attachment || voiceNoteBlob) {
+          showToast("Remove the attachment and voice note to send later, or clear \"Send later\" to summon now.", "error");
+          return;
+        }
+        const scheduleMessage = textarea.value.trim();
+        if (!scheduleMessage) {
+          showToast(randomErrorMessage("invalid"), "error");
+          return;
+        }
+        if (!authToken) {
+          showLoginPanel();
+          return;
+        }
+        submitInFlight = true;
+        submitButton.disabled = true;
+        updateVoiceNoteButtons();
+        submitButton.textContent = "Scheduling…";
+        let scheduleToast = "";
+        let scheduleToastKind = "error";
+        let scheduleSucceeded = false;
+        try {
+          if (tokenNeedsRefresh()) {
+            const refreshed = await refreshAccessToken();
+            if (!refreshed && !authToken) {
+              return;
+            }
+          }
+          const scheduleResponse = await fetch(voiceNotesPath, {
+            method: "POST",
+            credentials: "same-origin",
+            headers: {
+              "Accept": "application/json",
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${authToken}`
+            },
+            body: JSON.stringify({
+              action: "schedule_summon",
+              when: scheduleWhenIso,
+              message: scheduleMessage,
+              priority: prioritySelect ? String(prioritySelect.value || "").trim() : ""
+            })
+          });
+          const schedulePayload = await scheduleResponse.json().catch(() => null);
+          if (scheduleResponse.status === 401 || (schedulePayload && schedulePayload.session_expired)) {
+            handleLogout(schedulePayload && schedulePayload.message_text ? schedulePayload.message_text : "Session expired. Sign in again.");
+            return;
+          }
+          if (!scheduleResponse.ok || !schedulePayload || !schedulePayload.ok) {
+            scheduleToast =
+              (schedulePayload && schedulePayload.message_text) || "Could not schedule that summon.";
+            scheduleToastKind = "error";
+            return;
+          }
+          scheduleToast = schedulePayload.message_text || "Summon scheduled.";
+          scheduleToastKind = "success";
+          scheduleSucceeded = true;
+        } catch (error) {
+          scheduleToast = randomErrorMessage(error && error.message ? error.message : "request failed");
+          scheduleToastKind = "error";
+        } finally {
+          submitInFlight = false;
+          submitButton.disabled = false;
+          updateVoiceNoteButtons();
+          submitButton.textContent = "Summon";
+        }
+        if (scheduleToast) {
+          showToast(scheduleToast, scheduleToastKind);
+        }
+        if (scheduleSucceeded && summonWhenEl) {
+          summonWhenEl.value = "";
+          textarea.value = "";
+          updateSummonWhenBounds();
+          voiceNotesScheduledRenderSignature = "";
+          await refreshAliveFromStatus();
+          markVoiceNotesDirty();
+        }
+        return;
+      }
+
       submitInFlight = true;
       submitButton.disabled = true;
       updateVoiceNoteButtons();
@@ -2547,8 +2752,25 @@
         });
       }
 
-      if (voiceNotesList) {
-        voiceNotesList.addEventListener("click", (event) => {
+      if (voiceNotesShell) {
+        voiceNotesShell.addEventListener("click", async (event) => {
+          const schedBtn = event.target.closest("button[data-scheduled-action]");
+          if (schedBtn) {
+            const action = String(schedBtn.dataset.scheduledAction || "").trim();
+            const slotId = String(schedBtn.dataset.slotId || "").trim();
+            if (action === "remove" && slotId) {
+              if (!window.confirm("Cancel this scheduled summon?")) {
+                return;
+              }
+              schedBtn.disabled = true;
+              try {
+                await removeManualSummonSchedule(slotId);
+              } finally {
+                schedBtn.disabled = false;
+              }
+            }
+            return;
+          }
           void handleVoiceNoteListAction(event);
         });
       }
@@ -2661,6 +2883,11 @@
       if (aliveResetScheduleButton) {
         aliveResetScheduleButton.addEventListener("click", () => {
           void resetAliveScheduleTimes();
+        });
+      }
+      if (aliveManualScheduleButton) {
+        aliveManualScheduleButton.addEventListener("click", () => {
+          void scheduleManualAliveCheck();
         });
       }
     }
@@ -2987,6 +3214,9 @@
           String((slot && slot.at) || ""),
           slot && slot.fired ? "1" : "0",
           String((slot && slot.local_time) || ""),
+          slot && slot.manual ? "1" : "0",
+          String((slot && slot.slot_id) || ""),
+          String((slot && slot.message) || "").slice(0, 48),
         ].join("~")).join(";"),
       ].join("|");
     }
@@ -3044,6 +3274,12 @@
       if (raw === "alive_schedule") {
         return {
           text: "Scheduled",
+          cls: "alive-row-source alive-row-source--scheduled"
+        };
+      }
+      if (raw === "alive_manual_planned") {
+        return {
+          text: "Planned",
           cls: "alive-row-source alive-row-source--scheduled"
         };
       }
@@ -3124,6 +3360,45 @@
       });
     }
 
+    function updateAliveManualScheduleBounds() {
+      const el = document.getElementById("alive-manual-when");
+      if (!el) {
+        return;
+      }
+      const pad = (n) => String(n).padStart(2, "0");
+      const minD = new Date();
+      minD.setMinutes(minD.getMinutes() + 2);
+      el.min = `${minD.getFullYear()}-${pad(minD.getMonth() + 1)}-${pad(minD.getDate())}T${pad(minD.getHours())}:${pad(minD.getMinutes())}`;
+      const maxD = new Date();
+      maxD.setDate(maxD.getDate() + 14);
+      el.max = `${maxD.getFullYear()}-${pad(maxD.getMonth() + 1)}-${pad(maxD.getDate())}T${pad(maxD.getHours())}:${pad(maxD.getMinutes())}`;
+    }
+
+    function updateSummonWhenBounds() {
+      const el = document.getElementById("summon-when");
+      if (!el) {
+        return;
+      }
+      const pad = (n) => String(n).padStart(2, "0");
+      const minD = new Date();
+      minD.setMinutes(minD.getMinutes() + 2);
+      el.min = `${minD.getFullYear()}-${pad(minD.getMonth() + 1)}-${pad(minD.getDate())}T${pad(minD.getHours())}:${pad(minD.getMinutes())}`;
+      const maxD = new Date();
+      maxD.setDate(maxD.getDate() + 14);
+      el.max = `${maxD.getFullYear()}-${pad(maxD.getMonth() + 1)}-${pad(maxD.getDate())}T${pad(maxD.getHours())}:${pad(maxD.getMinutes())}`;
+    }
+
+    function localDateTimeValueToUtcIso(value) {
+      if (!value || typeof value !== "string") {
+        return "";
+      }
+      const parsed = new Date(value);
+      if (Number.isNaN(parsed.getTime())) {
+        return "";
+      }
+      return parsed.toISOString();
+    }
+
     function stopAliveScheduleClock() {
       if (!aliveScheduleClockTimer) {
         return;
@@ -3135,10 +3410,14 @@
     function startAliveScheduleClock() {
       stopAliveScheduleClock();
       aliveScheduleClockTimer = window.setInterval(() => {
-        if (activeTab !== "alive" || !lastStatusPayload) {
+        if (!lastStatusPayload) {
           return;
         }
-        renderAliveSchedule(lastStatusPayload);
+        if (activeTab === "alive") {
+          renderAliveSchedule(lastStatusPayload);
+        } else if (activeTab === "voice-notes") {
+          renderVoiceNotesScheduledRegion(lastStatusPayload);
+        }
       }, 15000);
     }
 
@@ -3173,8 +3452,12 @@
         }
         const li = document.createElement("li");
         const fired = Boolean(slot.fired);
+        const isManual = Boolean(slot.manual);
         if (fired) {
           li.classList.add("alive-schedule-fired");
+        }
+        if (isManual) {
+          li.classList.add("alive-schedule-slot--manual");
         }
         const rawAt = String((slot && slot.at) || "").trim();
         const atMs = rawAt ? Date.parse(rawAt) : NaN;
@@ -3186,13 +3469,131 @@
         }
         timeSpan.textContent = String(slot.local_time || "").trim() || rawAt || "—";
         li.appendChild(timeSpan);
+        if (isManual && String(slot.message || "").trim()) {
+          const msgSpan = document.createElement("span");
+          msgSpan.className = "alive-schedule-msg";
+          const full = String(slot.message || "").trim();
+          msgSpan.title = full;
+          msgSpan.textContent = full.length > 64 ? `${full.slice(0, 62)}…` : ` · ${full}`;
+          li.appendChild(msgSpan);
+        }
         if (fired) {
           const sent = document.createElement("span");
           sent.className = "alive-schedule-sent";
           sent.textContent = "sent";
           li.appendChild(sent);
         }
+        if (isManual && !fired && String(slot.slot_id || "").trim()) {
+          const sid = String(slot.slot_id || "").trim();
+          const rm = document.createElement("button");
+          rm.type = "button";
+          rm.className = "secondary-button alive-schedule-unschedule";
+          rm.textContent = "Remove";
+          rm.addEventListener("click", () => {
+            void removeManualAliveSchedule(sid);
+          });
+          li.appendChild(rm);
+        }
         listEl.appendChild(li);
+      });
+    }
+
+    function pendingFilteredSummonScheduleSlots(payload, searchText) {
+      const raw = Array.isArray(payload && payload.summon_schedule_slots) ? payload.summon_schedule_slots : [];
+      const pending = raw.filter((s) => s && !s.fired);
+      const q = String(searchText || "").trim().toLowerCase();
+      if (!q) {
+        return pending;
+      }
+      return pending.filter((slot) => {
+        const msg = String((slot && slot.message) || "").toLowerCase();
+        const pri = String((slot && slot.priority) || "").toLowerCase();
+        return msg.includes(q) || pri.includes(q);
+      });
+    }
+
+    function voiceNotesScheduledSlotsSignature(payload, searchText) {
+      const slots = pendingFilteredSummonScheduleSlots(payload, searchText);
+      if (slots.length === 0) {
+        return String(searchText || "").trim().toLowerCase();
+      }
+      const body = slots.map((slot) => [
+        String((slot && slot.at) || ""),
+        String((slot && slot.slot_id) || ""),
+        String((slot && slot.message) || "").slice(0, 48),
+        String((slot && slot.priority) || ""),
+      ].join("~")).join("|");
+      return `${String(searchText || "").trim().toLowerCase()}#${body}`;
+    }
+
+    function renderScheduledSummonCard(slot) {
+      const card = document.createElement("details");
+      card.className = "voice-note-card voice-note-card--scheduled";
+      card.dataset.scheduledSlot = String((slot && slot.slot_id) || "");
+      const priority = String(slot && slot.priority ? slot.priority : "").trim().toLowerCase();
+      const atRaw = String((slot && slot.at) || "").trim();
+      const atMs = atRaw ? Date.parse(atRaw) : NaN;
+      const overdue = Number.isFinite(atMs) && atMs < Date.now();
+      const timeClass = overdue ? "voice-note-card-time voice-note-card-time--due-soon" : "voice-note-card-time";
+      const localHint = String((slot && slot.local_time) || "").trim();
+      const titleAttr = localHint ? escapeAttribute(`${localHint} (${atRaw})`) : escapeAttribute(atRaw);
+      const badges = [
+        `<span class="voice-note-card-badge ${escapeAttribute(priorityBadgeClass(priority))}">${escapeHtml(priorityBadgeLabel(priority))}</span>`,
+        '<span class="voice-note-card-badge scheduled-pill">Scheduled</span>',
+      ].join("");
+      const sid = escapeAttribute(String((slot && slot.slot_id) || ""));
+      const message = String((slot && slot.message) || "");
+      card.style.setProperty("--voice-note-action-count", "1");
+      card.innerHTML = `
+        <summary class="voice-note-card-summary" title="${titleAttr}">
+          <span class="voice-note-card-summary-main">
+            <span class="voice-note-card-summary-top">
+              <span class="voice-note-card-time-row">
+                <span class="${timeClass}">${escapeHtml(formatVoiceNoteTimestamp(atRaw))}</span>
+                <span class="voice-note-card-time-separator" aria-hidden="true"></span>
+                <span class="voice-note-card-time-label">Scheduled for</span>
+              </span>
+            </span>
+            <span class="voice-note-card-preview">${escapeHtml(summonPreviewText(message))}</span>
+            <span class="voice-note-card-badges">${badges}</span>
+          </span>
+          <span class="voice-note-card-chevron" aria-hidden="true"></span>
+        </summary>
+        <div class="voice-note-card-body">
+          <div class="voice-note-card-actions">
+            <button class="secondary-button destructive" type="button" data-scheduled-action="remove" data-slot-id="${sid}">Remove</button>
+          </div>
+        </div>
+      `;
+      return card;
+    }
+
+    function renderVoiceNotesScheduledRegion(payload) {
+      const region = document.getElementById("voice-notes-scheduled-region");
+      if (!region) {
+        return;
+      }
+      if (!payload) {
+        region.innerHTML = "";
+        voiceNotesScheduledRenderSignature = "";
+        return;
+      }
+      const searchText = String((voiceNotesSearchInput && voiceNotesSearchInput.value) || "").trim();
+      const sig = voiceNotesScheduledSlotsSignature(payload, searchText);
+      if (sig === voiceNotesScheduledRenderSignature) {
+        return;
+      }
+      voiceNotesScheduledRenderSignature = sig;
+      const slots = pendingFilteredSummonScheduleSlots(payload, searchText).slice().sort((a, b) => {
+        const ta = Date.parse(String((a && a.at) || "")) || 0;
+        const tb = Date.parse(String((b && b.at) || "")) || 0;
+        return ta - tb;
+      });
+      region.innerHTML = "";
+      slots.forEach((s) => {
+        if (s) {
+          region.appendChild(renderScheduledSummonCard(s));
+        }
       });
     }
 
@@ -3356,6 +3757,7 @@
         const payload = await response.json();
         lastStatusPayload = payload;
         aliveRenderSignature = "";
+        voiceNotesScheduledRenderSignature = "";
         syncWatchedEvents(payload);
         return true;
       } catch (error) {
@@ -3574,6 +3976,166 @@
       }
     }
 
+    async function scheduleManualAliveCheck() {
+      const whenEl = document.getElementById("alive-manual-when");
+      const msgEl = document.getElementById("alive-manual-message");
+      if (!whenEl || !msgEl || !aliveManualScheduleButton) {
+        return;
+      }
+      if (!authToken) {
+        showLoginPanel();
+        return;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return;
+        }
+      }
+      const whenIso = localDateTimeValueToUtcIso(String(whenEl.value || "").trim());
+      const message = String(msgEl.value || "").trim();
+      if (!whenIso) {
+        showToast("Choose a date and time.", "error");
+        return;
+      }
+      if (!message) {
+        showToast("Enter a notification message.", "error");
+        return;
+      }
+      aliveManualScheduleButton.disabled = true;
+      try {
+        const response = await fetch(alivePath, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            action: "schedule_alive",
+            when: whenIso,
+            message
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return;
+        }
+        if (!response.ok || !payload || !payload.ok) {
+          showToast(
+            (payload && payload.message_text) || "Could not add that schedule.",
+            "error"
+          );
+          return;
+        }
+        showToast(payload.message_text || "Scheduled.", "success");
+        msgEl.value = "";
+        whenEl.value = "";
+        updateAliveManualScheduleBounds();
+        aliveRenderSignature = "";
+        await refreshAliveFromStatus();
+      } catch (error) {
+        console.error("Lori's Summon schedule alive failed", error);
+        showToast(randomErrorMessage("could not add schedule"), "error");
+      } finally {
+        aliveManualScheduleButton.disabled = false;
+      }
+    }
+
+    async function removeManualAliveSchedule(slotId) {
+      const sid = String(slotId || "").trim();
+      if (!sid || !authToken) {
+        return;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return;
+        }
+      }
+      try {
+        const response = await fetch(alivePath, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            action: "unschedule_alive",
+            slot_id: sid
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return;
+        }
+        if (!response.ok || !payload || !payload.ok) {
+          showToast(
+            (payload && payload.message_text) || "Could not remove that schedule.",
+            "error"
+          );
+          return;
+        }
+        showToast(payload.message_text || "Removed.", "success");
+        aliveRenderSignature = "";
+        await refreshAliveFromStatus();
+      } catch (error) {
+        console.error("Lori's Summon unschedule alive failed", error);
+        showToast(randomErrorMessage("could not remove schedule"), "error");
+      }
+    }
+
+    async function removeManualSummonSchedule(slotId) {
+      const sid = String(slotId || "").trim();
+      if (!sid || !authToken) {
+        return;
+      }
+      if (tokenNeedsRefresh()) {
+        const refreshed = await refreshAccessToken();
+        if (!refreshed && !authToken) {
+          return;
+        }
+      }
+      try {
+        const response = await fetch(voiceNotesPath, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${authToken}`
+          },
+          body: JSON.stringify({
+            action: "unschedule_summon",
+            slot_id: sid
+          })
+        });
+        const payload = await response.json().catch(() => null);
+        if (response.status === 401 || (payload && payload.session_expired)) {
+          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
+          return;
+        }
+        if (!response.ok || !payload || !payload.ok) {
+          showToast(
+            (payload && payload.message_text) || "Could not remove that scheduled summon.",
+            "error"
+          );
+          return;
+        }
+        showToast(payload.message_text || "Scheduled summon removed.", "success");
+        voiceNotesScheduledRenderSignature = "";
+        await refreshAliveFromStatus();
+      } catch (error) {
+        console.error("Lori's Summon unschedule summon failed", error);
+        showToast(randomErrorMessage("could not unschedule summon"), "error");
+      }
+    }
+
     function currentVoiceNotesQuery() {
       return {
         search: String((voiceNotesSearchInput && voiceNotesSearchInput.value) || "").trim(),
@@ -3720,6 +4282,14 @@
           reset: true
         });
       }
+      if (activeTab === "voice-notes") {
+        voiceNotesScheduledRenderSignature = "";
+        renderVoiceNotesScheduledRegion(lastStatusPayload);
+        startAliveScheduleClock();
+      }
+      if (activeTab === "summon") {
+        updateSummonWhenBounds();
+      }
       if (activeTab === "alive") {
         if (lastStatusPayload) {
           aliveRenderSignature = "";
@@ -3727,6 +4297,7 @@
         } else {
           await refreshAliveFromStatus();
         }
+        updateAliveManualScheduleBounds();
         startAliveScheduleClock();
       }
       if (syncUrl) {
@@ -3742,6 +4313,7 @@
       voiceNotesNextOffset = 0;
       voiceNotesRefreshQueued = false;
       historySnapshotSignature = "";
+      voiceNotesScheduledRenderSignature = "";
       voiceNoteEventIds.clear();
       if (voiceNotesSearchTimer) {
         window.clearTimeout(voiceNotesSearchTimer);
@@ -3749,6 +4321,10 @@
       }
       if (voiceNotesList) {
         voiceNotesList.innerHTML = "";
+      }
+      const scheduledRegionReset = document.getElementById("voice-notes-scheduled-region");
+      if (scheduledRegionReset) {
+        scheduledRegionReset.innerHTML = "";
       }
       setVoiceNotesStatus("Open this tab to load sent summons.");
       updateVoiceNotesSentinel();
@@ -3850,7 +4426,10 @@
         voiceNotesLoaded = true;
         voiceNotesHasMore = Boolean(payload.has_more);
         voiceNotesNextOffset = Number.isInteger(payload.next_offset) ? payload.next_offset : (offset + items.length);
-        if (voiceNotesList.children.length === 0) {
+        renderVoiceNotesScheduledRegion(lastStatusPayload);
+        const scheduledRegionEl = document.getElementById("voice-notes-scheduled-region");
+        const hasScheduledCards = Boolean(scheduledRegionEl && scheduledRegionEl.childElementCount > 0);
+        if (voiceNotesList.children.length === 0 && !hasScheduledCards) {
           setVoiceNotesStatus(query.search ? "No summons matched that search." : "No sent summons yet.");
         } else if (voiceNotesHasMore) {
           setVoiceNotesStatus("Scroll for more summons.");
@@ -4497,6 +5076,7 @@
       resetVoiceNotesState();
       lastStatusPayload = null;
       aliveRenderSignature = "";
+      voiceNotesScheduledRenderSignature = "";
       watchedAliveEventStates.clear();
       if (aliveToolbarStatus) {
         aliveToolbarStatus.textContent = "";
@@ -4518,6 +5098,25 @@
       }
       if (aliveResetScheduleButton) {
         aliveResetScheduleButton.disabled = false;
+      }
+      const aliveManualWhenClear = document.getElementById("alive-manual-when");
+      const aliveManualMessageClear = document.getElementById("alive-manual-message");
+      if (aliveManualWhenClear) {
+        aliveManualWhenClear.value = "";
+      }
+      if (aliveManualMessageClear) {
+        aliveManualMessageClear.value = "";
+      }
+      if (aliveManualScheduleButton) {
+        aliveManualScheduleButton.disabled = false;
+      }
+      const summonWhenClear = document.getElementById("summon-when");
+      if (summonWhenClear) {
+        summonWhenClear.value = "";
+      }
+      const scheduledRegionLogout = document.getElementById("voice-notes-scheduled-region");
+      if (scheduledRegionLogout) {
+        scheduledRegionLogout.innerHTML = "";
       }
       webPushLocalSubscribed = false;
       refreshWebPushButtonVisibility();
@@ -4597,6 +5196,19 @@
         "nothing to unsubscribe on this browser": "nothing to unsubscribe",
         "alive delete failed": "could not remove alive check",
         "alive flush failed": "could not clear alive history",
+        "could not add schedule": "could not add custom schedule",
+        "could not remove schedule": "could not remove custom schedule",
+        "could not schedule summon": "could not add scheduled summon",
+        "could not unschedule summon": "could not remove scheduled summon",
+        "bad time": "could not read the scheduled time",
+        "empty message": "empty summon message",
+        "message too long": "summon message is too long",
+        "too many pending": "too many pending scheduled summons",
+        "time in past": "scheduled time is too soon",
+        "time too far": "scheduled time is too far ahead",
+        "not running": "Home Assistant is not running",
+        "missing slot id": "missing schedule id",
+        "not found": "schedule entry was not found or already sent",
       } [normalized] || normalized || "unknown";
     }
 
@@ -4905,6 +5517,7 @@
       syncVoiceNotesHistory(payload);
       syncAliveWatchedToasts(payload);
       syncAlivePanel(payload);
+      renderVoiceNotesScheduledRegion(payload);
       updateWebPushSubscriptionSummary(payload);
       updateAliveIntroFromStatus(payload);
 

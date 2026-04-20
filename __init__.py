@@ -748,6 +748,60 @@ class LorisSummonAliveView(LorisSummonView):
                     ),
                 }
             )
+        if action == "schedule_alive":
+            when = str(data.get("when") or "").strip()
+            message = str(data.get("message") or "")
+            result = await runtime.async_add_manual_alive_schedule(when, message)
+            if not result.get("ok"):
+                reason = str(result.get("reason") or "")
+                status = 400
+                if reason in {"time_in_past", "bad_time", "empty_message"}:
+                    status = 400
+                elif reason in {"too_many_pending", "message_too_long", "time_too_far"}:
+                    status = 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "reason": reason,
+                        "message_text": str(
+                            result.get("message_text") or "Could not schedule that check."
+                        ),
+                    },
+                    status=status,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "slot_id": result.get("slot_id"),
+                    "message_text": str(
+                        result.get("message_text") or "Custom alive check scheduled."
+                    ),
+                }
+            )
+        if action == "unschedule_alive":
+            slot_id = str(data.get("slot_id") or "").strip()
+            result = await runtime.async_remove_manual_alive_schedule(slot_id)
+            if not result.get("ok"):
+                reason = str(result.get("reason") or "")
+                status = 404 if reason == "not_found" else 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "reason": reason,
+                        "message_text": str(
+                            result.get("message_text") or "Could not remove that schedule entry."
+                        ),
+                    },
+                    status=status,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "message_text": str(
+                        result.get("message_text") or "Scheduled check removed."
+                    ),
+                }
+            )
         return web.json_response(
             {"ok": False, "message_text": "Unknown alive check action."},
             status=400,
@@ -796,6 +850,55 @@ class LorisSummonVoiceNotesView(LorisSummonView):
 
         data = await _parse_request_body(request)
         action = str(data.get("action", "")).strip().lower()
+        if action == "schedule_summon":
+            when = str(data.get("when") or "").strip()
+            message = str(data.get("message") or "")
+            priority = str(data.get("priority") or "").strip()
+            result = await runtime.async_add_manual_summon_schedule(when, message, priority)
+            if not result.get("ok"):
+                reason = str(result.get("reason") or "")
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "reason": reason,
+                        "message_text": str(
+                            result.get("message_text") or "Could not schedule that summon."
+                        ),
+                    },
+                    status=400,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "slot_id": result.get("slot_id"),
+                    "message_text": str(result.get("message_text") or "Summon scheduled."),
+                }
+            )
+        if action == "unschedule_summon":
+            slot_id = str(data.get("slot_id") or "").strip()
+            result = await runtime.async_remove_manual_summon_schedule(slot_id)
+            if not result.get("ok"):
+                reason = str(result.get("reason") or "")
+                status = 404 if reason == "not_found" else 400
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "reason": reason,
+                        "message_text": str(
+                            result.get("message_text") or "Could not remove that schedule entry."
+                        ),
+                    },
+                    status=status,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "message_text": str(
+                        result.get("message_text") or "Scheduled summon removed."
+                    ),
+                }
+            )
+
         event_id = str(data.get("event_id", "")).strip()
         if not event_id:
             return web.json_response(

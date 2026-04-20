@@ -44,7 +44,11 @@ from .const import (
     ALIVE_SCHEDULE_MAX_PER_DAY,
     ALIVE_SCHEDULE_MIN_PER_DAY,
     ALIVE_SOURCE_MANUAL,
+    ALIVE_SOURCE_MANUAL_PLANNED,
     ALIVE_SOURCE_SCHEDULE,
+    ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS,
+    ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN,
+    ALIVE_MANUAL_SCHEDULE_MAX_PENDING,
     ATTACHMENT_FILE_PATH,
     ATTACHMENT_UPLOAD_MAX_BYTES,
     ATTR_ACKNOWLEDGED_AT,
@@ -127,6 +131,10 @@ from .const import (
     DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
     DEFAULT_SUMMON_MESSAGE,
     DEFAULT_SUMMON_PRIORITY,
+    SUMMON_SCHEDULE_MAX_LEAD_DAYS,
+    SUMMON_SCHEDULE_MAX_MESSAGE_LEN,
+    SUMMON_SCHEDULE_MAX_PENDING,
+    SUMMON_SOURCE_SCHEDULED,
     DEFAULT_TRIGGER_LIGHTS,
     DEFAULT_WEB_PASSWORD,
     DEFAULT_WEB_USERNAME,
@@ -149,6 +157,7 @@ from .const import (
     STORE_ALIVE_HISTORY,
     STORE_ALIVE_SCHEDULE,
     STORE_ALIVE_WATCHED_EVENTS,
+    STORE_SUMMON_SCHEDULE,
     STORE_WEB_PUSH_SUBSCRIPTIONS,
     STORE_WEB_PUSH_VAPID_PRIVATE,
     STORE_WEB_PUSH_VAPID_PUBLIC,
@@ -359,6 +368,8 @@ class LorisSummonRuntime:
         self._alive_watched_events: dict[str, dict[str, Any]] = {}
         self._alive_schedule_unsubs: list[Callable[[], None]] = []
         self._alive_schedule_blob: dict[str, Any] = {}
+        self._summon_schedule_unsubs: list[Callable[[], None]] = []
+        self._summon_schedule_blob: dict[str, Any] = {"manual_slots": []}
         self._web_push_vapid_private_pem: str | None = None
         self._web_push_vapid_public_b64u: str | None = None
         self._web_push_subscriptions: list[dict[str, Any]] = []
@@ -439,6 +450,12 @@ class LorisSummonRuntime:
         if isinstance(schedule_blob, dict):
             self._alive_schedule_blob = dict(schedule_blob)
 
+        summon_sched = stored.get(STORE_SUMMON_SCHEDULE)
+        if isinstance(summon_sched, dict):
+            self._summon_schedule_blob = dict(summon_sched)
+        if not isinstance(self._summon_schedule_blob.get("manual_slots"), list):
+            self._summon_schedule_blob["manual_slots"] = []
+
         subs = stored.get(STORE_WEB_PUSH_SUBSCRIPTIONS, [])
         if isinstance(subs, list):
             self._web_push_subscriptions = [
@@ -458,6 +475,7 @@ class LorisSummonRuntime:
             await self._async_save_state()
         self._notify_state_changed()
         self._ensure_alive_schedule()
+        self._ensure_summon_schedule()
 
     async def async_trigger(
         self,
@@ -755,6 +773,7 @@ class LorisSummonRuntime:
             "alive_schedule_per_day": self._alive_checks_per_day(),
             "alive_schedule_day": str(self._alive_schedule_blob.get("day") or ""),
             "alive_schedule_slots": self._alive_schedule_slots_for_status(),
+            "summon_schedule_slots": self._summon_schedule_slots_for_status(),
             "web_push": {
                 "subscription_count": len(self._web_push_subscriptions),
                 "max_subscriptions": WEB_PUSH_MAX_SUBSCRIPTIONS,
@@ -768,10 +787,18 @@ class LorisSummonRuntime:
             "alive_schedule_slots": self._alive_schedule_slots_for_status(),
         }
 
-    async def async_send_alive_check(self, source: str) -> dict[str, Any]:
+    async def async_send_alive_check(
+        self,
+        source: str,
+        *,
+        message: str | None = None,
+        title: str | None = None,
+    ) -> dict[str, Any]:
         now = dt_util.utcnow()
+        body = (str(message).strip() if message is not None else "") or ALIVE_CHECK_MESSAGE
+        ttl = (str(title).strip() if title is not None else "") or ALIVE_CHECK_TITLE
         entry = self._create_history_entry(
-            ALIVE_CHECK_MESSAGE,
+            body,
             source,
             PUSHOVER_PRIORITY_EMERGENCY,
             None,
@@ -780,7 +807,7 @@ class LorisSummonRuntime:
             now,
         )
         entry[ATTR_EVENT_KIND] = EVENT_KIND_ALIVE
-        entry[ATTR_PUSHOVER_TITLE] = ALIVE_CHECK_TITLE
+        entry[ATTR_PUSHOVER_TITLE] = ttl
         try:
             delivery_metadata = await self._send_notification(entry)
         except Exception as err:
@@ -888,9 +915,11 @@ class LorisSummonRuntime:
         if str(event.get(ATTR_EVENT_KIND) or "") == EVENT_KIND_ALIVE:
             return True
         source = str(event.get(ATTR_SOURCE) or "")
-        return source in {ALIVE_SOURCE_MANUAL, ALIVE_SOURCE_SCHEDULE} or source.startswith(
-            "alive_"
-        )
+        return source in {
+            ALIVE_SOURCE_MANUAL,
+            ALIVE_SOURCE_MANUAL_PLANNED,
+            ALIVE_SOURCE_SCHEDULE,
+        } or source.startswith("alive_")
 
     def _normalize_loaded_alive_item(self, item: dict[str, Any]) -> dict[str, Any]:
         if self._is_alive_event(item):
@@ -1012,6 +1041,14 @@ class LorisSummonRuntime:
                 pass
         self._alive_schedule_unsubs.clear()
 
+    def _cancel_summon_schedule_handles(self) -> None:
+        for unsub in self._summon_schedule_unsubs:
+            try:
+                unsub()
+            except Exception:  # noqa: BLE001
+                pass
+        self._summon_schedule_unsubs.clear()
+
     def _time_zone(self):
         return dt_util.get_time_zone(self.hass.config.time_zone) or dt_util.UTC
 
@@ -1028,11 +1065,21 @@ class LorisSummonRuntime:
     def _alive_schedule_day_key(self, day_anchor: datetime) -> str:
         return day_anchor.date().isoformat()
 
+    def _alive_manual_slot_list(self) -> list[dict[str, Any]]:
+        raw = self._alive_schedule_blob.get("manual_slots")
+        if not isinstance(raw, list):
+            self._alive_schedule_blob["manual_slots"] = []
+            raw = self._alive_schedule_blob["manual_slots"]
+        cleaned = [x for x in raw if isinstance(x, dict)]
+        if len(cleaned) != len(raw):
+            self._alive_schedule_blob["manual_slots"] = cleaned
+        return self._alive_schedule_blob["manual_slots"]  # type: ignore[return-value]
+
     def _alive_schedule_slots_for_status(self) -> list[dict[str, Any]]:
-        """Return today's scheduled alive times for the browser (Home Assistant local time)."""
+        """Return scheduled alive times for the browser (Home Assistant local time)."""
         slots_raw = self._alive_schedule_blob.get("slots")
         if not isinstance(slots_raw, list):
-            return []
+            slots_raw = []
         tz = self._time_zone()
         out: list[dict[str, Any]] = []
         for slot in slots_raw:
@@ -1053,6 +1100,30 @@ class LorisSummonRuntime:
                     "at": when.isoformat(),
                     "fired": bool(slot.get("fired")),
                     "local_time": local_label,
+                    "manual": False,
+                    "slot_id": "",
+                    "message": "",
+                }
+            )
+        for slot in self._alive_manual_slot_list():
+            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
+            if when is None:
+                continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt_util.UTC)
+            local_when = when.astimezone(tz)
+            hour12 = local_when.strftime("%I").lstrip("0") or "12"
+            minute = local_when.strftime("%M")
+            ampm = local_when.strftime("%p").lower()
+            local_label = f"{hour12}:{minute} {ampm}"
+            out.append(
+                {
+                    "at": when.isoformat(),
+                    "fired": bool(slot.get("fired")),
+                    "local_time": local_label,
+                    "manual": True,
+                    "slot_id": str(slot.get("id") or "").strip(),
+                    "message": str(slot.get("message") or "").strip(),
                 }
             )
         out.sort(key=lambda x: x["at"])
@@ -1120,6 +1191,7 @@ class LorisSummonRuntime:
             "day": target_date.isoformat(),
             "slots": slots,
             "scheduled_per_day": per_day,
+            "manual_slots": [],
         }
 
     def _alive_regenerated_schedule_blob(self) -> tuple[dict[str, Any] | None, str | None]:
@@ -1139,6 +1211,7 @@ class LorisSummonRuntime:
                     "day": day_key,
                     "slots": [],
                     "scheduled_per_day": 0,
+                    "manual_slots": [],
                 },
                 None,
             )
@@ -1156,6 +1229,7 @@ class LorisSummonRuntime:
                 "day": day_key,
                 "slots": [{"at": t.isoformat(), "fired": False} for t in fire_times],
                 "scheduled_per_day": per_day,
+                "manual_slots": [],
             },
             None,
         )
@@ -1183,8 +1257,15 @@ class LorisSummonRuntime:
                 "reason": "unknown",
                 "message_text": "Could not redraw scheduled times.",
             }
+        preserved_manual = [
+            dict(m)
+            for m in self._alive_manual_slot_list()
+            if not m.get("fired")
+        ]
         self._cancel_alive_schedule_handles()
         self._alive_schedule_blob = blob
+        if preserved_manual:
+            self._alive_schedule_blob["manual_slots"] = preserved_manual
         await self._async_commit_state()
         self._notify_state_changed()
         self._ensure_alive_schedule()
@@ -1192,6 +1273,115 @@ class LorisSummonRuntime:
             "ok": True,
             "message_text": "Scheduled alive check times were redrawn.",
         }
+
+    async def async_add_manual_alive_schedule(
+        self, when_raw: str, message_raw: str
+    ) -> dict[str, Any]:
+        """Queue a one-off alive check at ``when_raw`` (ISO UTC) with a custom Pushover message."""
+        if not self.hass.is_running:
+            return {
+                "ok": False,
+                "reason": "not_running",
+                "message_text": "Home Assistant is not running.",
+            }
+        when = dt_util.parse_datetime(str(when_raw or "").strip())
+        if when is None:
+            return {
+                "ok": False,
+                "reason": "bad_time",
+                "message_text": "Could not parse the scheduled time.",
+            }
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=dt_util.UTC)
+        when = dt_util.as_utc(when)
+        message = str(message_raw or "").strip()
+        if not message:
+            return {
+                "ok": False,
+                "reason": "empty_message",
+                "message_text": "Enter a notification message.",
+            }
+        if len(message) > ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN:
+            return {
+                "ok": False,
+                "reason": "message_too_long",
+                "message_text": (
+                    f"Message is too long (max {ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN} characters)."
+                ),
+            }
+        pending = len(
+            [m for m in self._alive_manual_slot_list() if not m.get("fired")]
+        )
+        if pending >= ALIVE_MANUAL_SCHEDULE_MAX_PENDING:
+            return {
+                "ok": False,
+                "reason": "too_many_pending",
+                "message_text": (
+                    f"Too many pending custom times (max {ALIVE_MANUAL_SCHEDULE_MAX_PENDING})."
+                ),
+            }
+        now = dt_util.utcnow()
+        if when <= now + timedelta(seconds=20):
+            return {
+                "ok": False,
+                "reason": "time_in_past",
+                "message_text": "Pick a time at least a minute from now.",
+            }
+        latest = now + timedelta(days=ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS)
+        if when > latest:
+            return {
+                "ok": False,
+                "reason": "time_too_far",
+                "message_text": (
+                    f"Pick a time within the next {ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS} days."
+                ),
+            }
+        slot_id = uuid4().hex
+        self._alive_manual_slot_list().append(
+            {
+                "id": slot_id,
+                "at": when.isoformat(),
+                "message": message,
+                "fired": False,
+            }
+        )
+        await self._async_commit_state()
+        self._notify_state_changed()
+        self._ensure_alive_schedule()
+        return {
+            "ok": True,
+            "slot_id": slot_id,
+            "message_text": "Custom alive check scheduled.",
+        }
+
+    async def async_remove_manual_alive_schedule(self, slot_id: str) -> dict[str, Any]:
+        """Remove a pending custom scheduled alive check by id."""
+        sid = str(slot_id or "").strip()
+        if not sid:
+            return {
+                "ok": False,
+                "reason": "missing_slot_id",
+                "message_text": "Missing schedule id.",
+            }
+        manual = self._alive_manual_slot_list()
+        kept: list[dict[str, Any]] = []
+        removed = False
+        for m in manual:
+            if str(m.get("id") or "").strip() == sid and not m.get("fired"):
+                removed = True
+                continue
+            kept.append(m)
+        if not removed:
+            return {
+                "ok": False,
+                "reason": "not_found",
+                "message_text": "That scheduled check was not found or already sent.",
+            }
+        self._alive_schedule_blob["manual_slots"] = kept
+        await self._async_commit_state()
+        self._notify_state_changed()
+        self._ensure_alive_schedule()
+        return {"ok": True, "message_text": "Scheduled check removed."}
 
     def _ensure_alive_schedule(self) -> None:
         if not self.hass.is_running:
@@ -1201,6 +1391,8 @@ class LorisSummonRuntime:
         day_anchor = self._alive_schedule_target_local_date()
         day_key = self._alive_schedule_day_key(day_anchor)
         want = self._alive_checks_per_day()
+        if not isinstance(self._alive_schedule_blob.get("manual_slots"), list):
+            self._alive_schedule_blob["manual_slots"] = []
         slots = self._alive_schedule_blob.get("slots")
         stored_per = self._alive_schedule_blob.get("scheduled_per_day")
         if stored_per is None and isinstance(slots, list):
@@ -1211,24 +1403,95 @@ class LorisSummonRuntime:
             or len(slots) != want
             or stored_per != want
         ):
+            preserved_manual = [
+                dict(m)
+                for m in self._alive_manual_slot_list()
+                if not m.get("fired")
+            ]
             self._alive_schedule_blob = self._build_new_alive_schedule(day_anchor, tz)
+            if preserved_manual:
+                self._alive_schedule_blob["manual_slots"] = preserved_manual
             self.hass.async_create_task(self._async_commit_state())
         slots_list = self._alive_schedule_blob.get("slots")
         if not isinstance(slots_list, list):
-            return
+            slots_list = []
         now_utc = dt_util.utcnow()
+        overdue_seq = 0
+
+        def _arm_alive_trigger(trigger_at: datetime, slot_index: int, kind: str) -> None:
+            async def _fire_scheduled_alive(
+                _now: datetime, idx: int = slot_index, k: str = kind
+            ) -> None:
+                if k == "manual":
+                    await self._async_fire_manual_alive_schedule_slot(idx)
+                else:
+                    await self._async_fire_alive_schedule_slot(idx)
+
+            unsub = async_track_point_in_time(
+                self.hass, _fire_scheduled_alive, trigger_at
+            )
+            self._alive_schedule_unsubs.append(unsub)
+
         for index, slot in enumerate(slots_list):
             if not isinstance(slot, dict) or slot.get("fired"):
                 continue
             when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
-            if when is None or when <= now_utc:
+            if when is None:
                 continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt_util.UTC)
+            when = dt_util.as_utc(when)
+            if when > now_utc:
+                trigger_at = when
+            else:
+                overdue_seq += 1
+                trigger_at = now_utc + timedelta(seconds=2 + overdue_seq * 3)
+                _LOGGER.debug(
+                    "Alive schedule slot %s was due at %s UTC; catch-up fire scheduled for %s UTC",
+                    index,
+                    when.isoformat(),
+                    trigger_at.isoformat(),
+                )
+            _arm_alive_trigger(trigger_at, index, "random")
 
-            async def _fire_scheduled_alive(_now: datetime, idx: int = index) -> None:
-                await self._async_fire_alive_schedule_slot(idx)
+        for index, slot in enumerate(self._alive_manual_slot_list()):
+            if not isinstance(slot, dict) or slot.get("fired"):
+                continue
+            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
+            if when is None:
+                continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt_util.UTC)
+            when = dt_util.as_utc(when)
+            if when > now_utc:
+                trigger_at = when
+            else:
+                overdue_seq += 1
+                trigger_at = now_utc + timedelta(seconds=2 + overdue_seq * 3)
+                _LOGGER.debug(
+                    "Alive manual slot %s was due at %s UTC; catch-up fire scheduled for %s UTC",
+                    index,
+                    when.isoformat(),
+                    trigger_at.isoformat(),
+                )
+            _arm_alive_trigger(trigger_at, index, "manual")
 
-            unsub = async_track_point_in_time(self.hass, _fire_scheduled_alive, when)
-            self._alive_schedule_unsubs.append(unsub)
+    async def _async_fire_manual_alive_schedule_slot(self, slot_index: int) -> None:
+        manual_list = self._alive_manual_slot_list()
+        if slot_index < 0 or slot_index >= len(manual_list):
+            return
+        slot = manual_list[slot_index]
+        if not isinstance(slot, dict) or slot.get("fired"):
+            return
+        body = str(slot.get("message") or "").strip() or ALIVE_CHECK_MESSAGE
+        result = await self.async_send_alive_check(
+            ALIVE_SOURCE_MANUAL_PLANNED,
+            message=body,
+        )
+        if result.get("ok"):
+            slot["fired"] = True
+            await self._async_commit_state()
+        self._ensure_alive_schedule()
 
     async def _async_fire_alive_schedule_slot(self, slot_index: int) -> None:
         slots_raw = self._alive_schedule_blob.get("slots")
@@ -1242,6 +1505,224 @@ class LorisSummonRuntime:
             slot["fired"] = True
             await self._async_commit_state()
         self._ensure_alive_schedule()
+
+    def _summon_manual_slot_list(self) -> list[dict[str, Any]]:
+        raw = self._summon_schedule_blob.get("manual_slots")
+        if not isinstance(raw, list):
+            self._summon_schedule_blob["manual_slots"] = []
+            raw = self._summon_schedule_blob["manual_slots"]
+        cleaned = [x for x in raw if isinstance(x, dict)]
+        if len(cleaned) != len(raw):
+            self._summon_schedule_blob["manual_slots"] = cleaned
+        return self._summon_schedule_blob["manual_slots"]  # type: ignore[return-value]
+
+    def _summon_schedule_slots_for_status(self) -> list[dict[str, Any]]:
+        """Pending scheduled summons for the browser (local HA time labels)."""
+        tz = self._time_zone()
+        out: list[dict[str, Any]] = []
+        for slot in self._summon_manual_slot_list():
+            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
+            if when is None:
+                continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt_util.UTC)
+            local_when = when.astimezone(tz)
+            hour12 = local_when.strftime("%I").lstrip("0") or "12"
+            minute = local_when.strftime("%M")
+            ampm = local_when.strftime("%p").lower()
+            local_label = f"{hour12}:{minute} {ampm}"
+            pri = str(slot.get("priority") or "").strip() or DEFAULT_SUMMON_PRIORITY
+            out.append(
+                {
+                    "at": when.isoformat(),
+                    "fired": bool(slot.get("fired")),
+                    "local_time": local_label,
+                    "message": str(slot.get("message") or "").strip(),
+                    "priority": pri,
+                    "slot_id": str(slot.get("id") or "").strip(),
+                }
+            )
+        out.sort(key=lambda x: x["at"])
+        return out
+
+    def _ensure_summon_schedule(self) -> None:
+        if not self.hass.is_running:
+            return
+        self._cancel_summon_schedule_handles()
+        if not isinstance(self._summon_schedule_blob.get("manual_slots"), list):
+            self._summon_schedule_blob["manual_slots"] = []
+        now_utc = dt_util.utcnow()
+        overdue_seq = 0
+
+        def _arm_summon_trigger(trigger_at: datetime, slot_index: int) -> None:
+            async def _fire_scheduled_summon(
+                _now: datetime, idx: int = slot_index
+            ) -> None:
+                await self._async_fire_summon_schedule_slot(idx)
+
+            unsub = async_track_point_in_time(
+                self.hass, _fire_scheduled_summon, trigger_at
+            )
+            self._summon_schedule_unsubs.append(unsub)
+
+        for index, slot in enumerate(self._summon_manual_slot_list()):
+            if not isinstance(slot, dict) or slot.get("fired"):
+                continue
+            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
+            if when is None:
+                continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt_util.UTC)
+            when = dt_util.as_utc(when)
+            if when > now_utc:
+                trigger_at = when
+            else:
+                overdue_seq += 1
+                trigger_at = now_utc + timedelta(seconds=2 + overdue_seq * 3)
+                _LOGGER.debug(
+                    "Summon schedule slot %s was due at %s UTC; catch-up fire scheduled for %s UTC",
+                    index,
+                    when.isoformat(),
+                    trigger_at.isoformat(),
+                )
+            _arm_summon_trigger(trigger_at, index)
+
+    async def _async_fire_summon_schedule_slot(self, slot_index: int) -> None:
+        slots = self._summon_manual_slot_list()
+        if slot_index < 0 or slot_index >= len(slots):
+            return
+        slot = slots[slot_index]
+        if not isinstance(slot, dict) or slot.get("fired"):
+            return
+        msg = str(slot.get("message") or "").strip() or DEFAULT_SUMMON_MESSAGE
+        pri_raw = str(slot.get("priority") or "").strip()
+        cleaned_pri = _normalize_priority(pri_raw) or DEFAULT_SUMMON_PRIORITY
+        result = await self.async_trigger(
+            msg,
+            SUMMON_SOURCE_SCHEDULED,
+            priority=cleaned_pri,
+        )
+        if result.accepted:
+            slot["fired"] = True
+            await self._async_commit_state()
+        self._ensure_summon_schedule()
+
+    async def async_add_manual_summon_schedule(
+        self, when_raw: str, message_raw: str, priority_raw: str
+    ) -> dict[str, Any]:
+        """Queue a summon message at ``when_raw`` (ISO UTC) with optional priority."""
+        if not self.hass.is_running:
+            return {
+                "ok": False,
+                "reason": "not_running",
+                "message_text": "Home Assistant is not running.",
+            }
+        when = dt_util.parse_datetime(str(when_raw or "").strip())
+        if when is None:
+            return {
+                "ok": False,
+                "reason": "bad_time",
+                "message_text": "Could not parse the scheduled time.",
+            }
+        if when.tzinfo is None:
+            when = when.replace(tzinfo=dt_util.UTC)
+        when = dt_util.as_utc(when)
+        message = str(message_raw or "").strip()
+        if not message:
+            return {
+                "ok": False,
+                "reason": "empty_message",
+                "message_text": "Enter a summon message.",
+            }
+        if len(message) > SUMMON_SCHEDULE_MAX_MESSAGE_LEN:
+            return {
+                "ok": False,
+                "reason": "message_too_long",
+                "message_text": (
+                    f"Message is too long (max {SUMMON_SCHEDULE_MAX_MESSAGE_LEN} characters)."
+                ),
+            }
+        cleaned_pri = _normalize_priority(priority_raw)
+        if cleaned_pri is None:
+            return {
+                "ok": False,
+                "reason": "invalid_priority",
+                "message_text": "Invalid priority for the scheduled summon.",
+            }
+        pending = len(
+            [m for m in self._summon_manual_slot_list() if not m.get("fired")]
+        )
+        if pending >= SUMMON_SCHEDULE_MAX_PENDING:
+            return {
+                "ok": False,
+                "reason": "too_many_pending",
+                "message_text": (
+                    f"Too many pending scheduled summons (max {SUMMON_SCHEDULE_MAX_PENDING})."
+                ),
+            }
+        now = dt_util.utcnow()
+        if when <= now + timedelta(seconds=20):
+            return {
+                "ok": False,
+                "reason": "time_in_past",
+                "message_text": "Pick a time at least a minute from now.",
+            }
+        latest = now + timedelta(days=SUMMON_SCHEDULE_MAX_LEAD_DAYS)
+        if when > latest:
+            return {
+                "ok": False,
+                "reason": "time_too_far",
+                "message_text": (
+                    f"Pick a time within the next {SUMMON_SCHEDULE_MAX_LEAD_DAYS} days."
+                ),
+            }
+        slot_id = uuid4().hex
+        self._summon_manual_slot_list().append(
+            {
+                "id": slot_id,
+                "at": when.isoformat(),
+                "message": message,
+                "priority": cleaned_pri,
+                "fired": False,
+            }
+        )
+        await self._async_commit_state()
+        self._notify_state_changed()
+        self._ensure_summon_schedule()
+        return {
+            "ok": True,
+            "slot_id": slot_id,
+            "message_text": "Summon scheduled.",
+        }
+
+    async def async_remove_manual_summon_schedule(self, slot_id: str) -> dict[str, Any]:
+        """Remove a pending scheduled summon by id."""
+        sid = str(slot_id or "").strip()
+        if not sid:
+            return {
+                "ok": False,
+                "reason": "missing_slot_id",
+                "message_text": "Missing schedule id.",
+            }
+        manual = self._summon_manual_slot_list()
+        kept: list[dict[str, Any]] = []
+        removed = False
+        for m in manual:
+            if str(m.get("id") or "").strip() == sid and not m.get("fired"):
+                removed = True
+                continue
+            kept.append(m)
+        if not removed:
+            return {
+                "ok": False,
+                "reason": "not_found",
+                "message_text": "That scheduled summon was not found or already sent.",
+            }
+        self._summon_schedule_blob["manual_slots"] = kept
+        await self._async_commit_state()
+        self._notify_state_changed()
+        self._ensure_summon_schedule()
+        return {"ok": True, "message_text": "Scheduled summon removed."}
 
     async def _async_finalize_emergency_expired(
         self,
@@ -1669,6 +2150,7 @@ class LorisSummonRuntime:
     async def async_shutdown(self) -> None:
         # Cancel background reminders so unloads do not leave orphaned tasks behind
         self._cancel_alive_schedule_handles()
+        self._cancel_summon_schedule_handles()
         task = self._reminder_task
         self._reminder_task = None
         if task is None:
@@ -2001,6 +2483,7 @@ class LorisSummonRuntime:
                     dict(item) for item in self._alive_watched_events.values()
                 ],
                 STORE_ALIVE_SCHEDULE: dict(self._alive_schedule_blob),
+                STORE_SUMMON_SCHEDULE: dict(self._summon_schedule_blob),
                 STORE_WEB_PUSH_SUBSCRIPTIONS: [
                     dict(s) for s in self._web_push_subscriptions
                 ],
@@ -2504,6 +2987,15 @@ class LorisSummonRuntime:
                 disposition="invalid_priority",
                 message=cleaned_message,
                 source=cleaned_source,
+            )
+
+        if cleaned_source == SUMMON_SOURCE_SCHEDULED:
+            return TriggerResult(
+                accepted=True,
+                disposition="triggered",
+                message=cleaned_message,
+                source=cleaned_source,
+                priority=cleaned_priority,
             )
 
         cooldown_until = self._cooldown_until()
