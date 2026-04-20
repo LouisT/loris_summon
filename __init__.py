@@ -23,12 +23,14 @@ import voluptuous as vol  # type: ignore
 
 from .const import (
     ACKNOWLEDGE_PATH,
+    ALIVE_PATH,
     ATTACHMENT_FILE_PATH,
     ATTR_ACKNOWLEDGED_BY,
     ATTR_MESSAGE,
     ATTR_PRIORITY,
     ATTR_SOURCE,
     DEFAULT_SUMMON_MESSAGE,
+    ALIVE_SOURCE_MANUAL,
     DEFAULT_SUMMON_PRIORITY,
     DOMAIN,
     ICON_PATH,
@@ -40,6 +42,7 @@ from .const import (
     PUSHOVER_PRIORITY_LOWEST,
     PUSHOVER_PRIORITY_NORMAL,
     SERVICE_ACKNOWLEDGE,
+    SERVICE_REGENERATE_WEB_PUSH_KEYS,
     SERVICE_TEST_ACTIONS,
     SERVICE_TRIGGER,
     STATUS_PATH,
@@ -51,6 +54,11 @@ from .const import (
     WEB_PATH,
     WEB_LOGIN_PATH,
     WEB_REFRESH_PATH,
+    WEB_PUSH_SW_PATH,
+    WEB_PUSH_SW_SCOPE,
+    WEB_PUSH_SUBSCRIBE_PATH,
+    WEB_PUSH_UNSUBSCRIBE_PATH,
+    WEB_PUSH_VAPID_PATH,
     DISPATCH_STATE_UPDATED,
 )
 from .runtime import LorisSummonRuntime, TriggerResult
@@ -60,6 +68,7 @@ VIEWS_REGISTERED_KEY = "views_registered"
 TEMPLATES_DIR = Path(__file__).with_name("templates")
 WEB_PAGE_TEMPLATE_PATH = TEMPLATES_DIR / "web_page.html"
 VOICE_NOTE_PAGE_TEMPLATE_PATH = TEMPLATES_DIR / "voice_note_page.html"
+WEBPUSH_SW_TEMPLATE_PATH = TEMPLATES_DIR / "webpush_sw.js"
 WEB_PAGE_ICON_PATH = Path(__file__).with_name("brand") / "icon.png"
 WEB_PLACEHOLDERS = (
     "Command your sub to bend sweetly to your every desire.",
@@ -161,6 +170,7 @@ ACKNOWLEDGE_SERVICE_SCHEMA = vol.Schema(
         vol.Optional(ATTR_SOURCE): cv.string,
     }
 )
+REGENERATE_WEB_PUSH_KEYS_SERVICE_SCHEMA = vol.Schema({})
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -192,6 +202,9 @@ def _register_services(hass: HomeAssistant) -> None:
     async def handle_acknowledge(call: ServiceCall) -> None:
         await _async_handle_acknowledge_service(hass, call)
 
+    async def handle_regenerate_web_push_keys(call: ServiceCall) -> None:
+        await _async_handle_regenerate_web_push_keys_service(hass, call)
+
     hass.services.async_register(
         DOMAIN,
         SERVICE_TRIGGER,
@@ -210,6 +223,12 @@ def _register_services(hass: HomeAssistant) -> None:
         handle_acknowledge,
         schema=ACKNOWLEDGE_SERVICE_SCHEMA,
     )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REGENERATE_WEB_PUSH_KEYS,
+        handle_regenerate_web_push_keys,
+        schema=REGENERATE_WEB_PUSH_KEYS_SERVICE_SCHEMA,
+    )
 
 
 def _register_views(hass: HomeAssistant) -> None:
@@ -221,12 +240,17 @@ def _register_views(hass: HomeAssistant) -> None:
     hass.http.register_view(LorisSummonWebRefreshView(hass))
     hass.http.register_view(LorisSummonStatusView(hass))
     hass.http.register_view(LorisSummonStatusStreamView(hass))
+    hass.http.register_view(LorisSummonAliveView(hass))
     hass.http.register_view(LorisSummonIconView(hass))
     hass.http.register_view(LorisSummonVoiceNotesView(hass))
     hass.http.register_view(LorisSummonAttachmentFileView(hass))
     hass.http.register_view(LorisSummonVoiceNotePageView(hass))
     hass.http.register_view(LorisSummonVoiceNoteFileView(hass))
     hass.http.register_view(LorisSummonPageView(hass))
+    hass.http.register_view(LorisSummonWebPushVapidView(hass))
+    hass.http.register_view(LorisSummonWebPushSubscribeView(hass))
+    hass.http.register_view(LorisSummonWebPushUnsubscribeView(hass))
+    hass.http.register_view(LorisSummonWebPushServiceWorkerView(hass))
 
 
 async def _async_handle_trigger_service(
@@ -259,6 +283,16 @@ async def _async_handle_acknowledge_service(
     )
     if not result.get("acknowledged"):
         raise vol.Invalid("No outstanding notifications to acknowledge")
+
+
+async def _async_handle_regenerate_web_push_keys_service(
+    hass: HomeAssistant, call: ServiceCall
+) -> None:
+    runtime = _configured_runtime(hass)
+    result = await runtime.async_regenerate_web_push_keys()
+    if not result.get("ok"):
+        reason = str(result.get("error") or "unknown")
+        raise vol.Invalid(f"Web Push key rotation failed: {reason}")
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: LorisSummonConfigEntry) -> bool:
@@ -597,6 +631,106 @@ class LorisSummonStatusStreamView(LorisSummonView):
         return response
 
 
+class LorisSummonAliveView(LorisSummonView):
+    url = ALIVE_PATH
+    name = "api:loris_summon:alive"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        runtime, claims, error = self._web_token_runtime_or_response(request)
+        if error is not None or runtime is None or claims is None:
+            return error
+        return web.json_response({"ok": True, **runtime.alive_checks_browser_page()})
+
+    async def post(self, request: web.Request) -> web.Response:
+        runtime, claims, error = self._web_token_runtime_or_response(request)
+        if error is not None or runtime is None or claims is None:
+            return error
+        data = await _parse_request_body(request)
+        action = str(data.get("action", "")).strip().lower()
+        if action == "send":
+            try:
+                result = await runtime.async_send_alive_check(ALIVE_SOURCE_MANUAL)
+            except HomeAssistantError as err:
+                return web.json_response(
+                    {"ok": False, "message_text": str(err)},
+                    status=502,
+                )
+            if not result.get("ok"):
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "message_text": str(result.get("error") or "Alive check failed."),
+                    },
+                    status=502,
+                )
+            return web.json_response(
+                {
+                    "ok": True,
+                    "event_id": result.get("event_id"),
+                    "message_text": "Alive check sent.",
+                }
+            )
+        if action == "delete":
+            event_id = str(data.get("event_id", "")).strip()
+            if not event_id:
+                return web.json_response(
+                    {"ok": False, "message_text": "Missing alive check id.", "reason": "missing_event_id"},
+                    status=400,
+                )
+            result = await runtime.async_delete_alive_check(event_id)
+            if result.get("ok"):
+                return web.json_response(
+                    {
+                        "ok": True,
+                        "event_id": result.get("event_id"),
+                        "message_text": "Alive check removed from history.",
+                    }
+                )
+            reason = str(result.get("reason") or "")
+            if reason == "not_found":
+                return web.json_response(
+                    {"ok": False, "message_text": "Alive check not found.", "reason": reason},
+                    status=404,
+                )
+            if reason == "active_alive_check":
+                return web.json_response(
+                    {
+                        "ok": False,
+                        "message_text": "That alive check is still active or awaiting acknowledgment.",
+                        "reason": reason,
+                    },
+                    status=409,
+                )
+            return web.json_response(
+                {"ok": False, "message_text": "Could not remove alive check.", "reason": reason},
+                status=400,
+            )
+        if action == "flush":
+            result = await runtime.async_flush_alive_history()
+            if not result.get("ok"):
+                return web.json_response(
+                    {"ok": False, "message_text": "Could not clear alive history."},
+                    status=500,
+                )
+            removed = int(result.get("removed") or 0)
+            return web.json_response(
+                {
+                    "ok": True,
+                    "removed": removed,
+                    "message_text": (
+                        f"Cleared {removed} alive check record(s)."
+                        if removed
+                        else "Alive history was already empty."
+                    ),
+                }
+            )
+        return web.json_response(
+            {"ok": False, "message_text": "Unknown alive check action."},
+            status=400,
+        )
+
+
 class LorisSummonVoiceNotesView(LorisSummonView):
     url = VOICE_NOTES_PATH
     name = "api:loris_summon:voice_notes"
@@ -702,6 +836,81 @@ class LorisSummonVoiceNotesView(LorisSummonView):
         return web.json_response(
             {"ok": False, "message_text": "Unknown summon action."},
             status=400,
+        )
+
+
+class LorisSummonWebPushVapidView(LorisSummonView):
+    url = WEB_PUSH_VAPID_PATH
+    name = "api:loris_summon:webpush_vapid"
+    requires_auth = False
+
+    async def get(self, request: web.Request) -> web.Response:
+        runtime, claims, error = self._web_token_runtime_or_response(request)
+        if error is not None or runtime is None or claims is None:
+            return error
+        await runtime.async_ensure_web_push_vapid_keys()
+        return web.json_response({"ok": True, **runtime.web_push_public_config()})
+
+
+class LorisSummonWebPushSubscribeView(LorisSummonView):
+    url = WEB_PUSH_SUBSCRIBE_PATH
+    name = "api:loris_summon:webpush_subscribe"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        runtime, claims, error = self._web_token_runtime_or_response(request)
+        if error is not None or runtime is None or claims is None:
+            return error
+        data = await _parse_request_body(request)
+        info = data.get("subscription") if isinstance(
+            data.get("subscription"), dict) else data
+        result = await runtime.async_register_web_push_subscription(info)
+        if not result.get("ok"):
+            reason = str(result.get("reason") or "")
+            status = 503 if reason == "webpush_unavailable" else 400
+            return web.json_response(result, status=status)
+        return web.json_response(result)
+
+
+class LorisSummonWebPushUnsubscribeView(LorisSummonView):
+    url = WEB_PUSH_UNSUBSCRIBE_PATH
+    name = "api:loris_summon:webpush_unsubscribe"
+    requires_auth = False
+
+    async def post(self, request: web.Request) -> web.Response:
+        runtime, claims, error = self._web_token_runtime_or_response(request)
+        if error is not None or runtime is None or claims is None:
+            return error
+        data = await _parse_request_body(request)
+        endpoint = str(data.get("endpoint", "")).strip()
+        result = await runtime.async_unregister_web_push_subscription(endpoint)
+        if not result.get("ok"):
+            return web.json_response(result, status=404)
+        return web.json_response(result)
+
+
+class LorisSummonWebPushServiceWorkerView(HomeAssistantView):
+    url = WEB_PUSH_SW_PATH
+    name = "loris_summon:webpush_sw"
+    requires_auth = False
+
+    def __init__(self, hass: HomeAssistant) -> None:
+        self.hass = hass
+
+    async def get(self, request: web.Request) -> web.Response:
+        if not await self.hass.async_add_executor_job(WEBPUSH_SW_TEMPLATE_PATH.exists):
+            return web.Response(status=404, text="Service worker not found")
+        body = await self.hass.async_add_executor_job(
+            lambda: WEBPUSH_SW_TEMPLATE_PATH.read_text(encoding="utf-8")
+        )
+        return web.Response(
+            text=body,
+            content_type="application/javascript",
+            charset="utf-8",
+            headers={
+                "Service-Worker-Allowed": WEB_PUSH_SW_SCOPE.rstrip("/") + "/",
+                "Cache-Control": "no-store",
+            },
         )
 
 
@@ -1098,6 +1307,12 @@ async def _async_render_web_page(
         .replace("__STATUS_PATH__", STATUS_PATH)
         .replace("__STATUS_STREAM_PATH__", STATUS_STREAM_PATH)
         .replace("__VOICE_NOTES_PATH__", VOICE_NOTES_PATH)
+        .replace("__ALIVE_PATH__", ALIVE_PATH)
+        .replace("__WEB_PUSH_VAPID_PATH__", WEB_PUSH_VAPID_PATH)
+        .replace("__WEB_PUSH_SUBSCRIBE_PATH__", WEB_PUSH_SUBSCRIBE_PATH)
+        .replace("__WEB_PUSH_UNSUBSCRIBE_PATH__", WEB_PUSH_UNSUBSCRIBE_PATH)
+        .replace("__WEB_PUSH_SW_PATH__", WEB_PUSH_SW_PATH)
+        .replace("__WEB_PUSH_SW_SCOPE__", WEB_PUSH_SW_SCOPE)
         .replace("__WEB_LOGIN_PATH__", WEB_LOGIN_PATH)
         .replace("__WEB_REFRESH_PATH__", WEB_REFRESH_PATH)
         .replace("__TOKEN_REFRESH_WINDOW_SECONDS__", str(token_refresh_window_seconds))
@@ -1162,6 +1377,11 @@ def _human_error_reason(reason: str) -> str:
         "not found": "summon was not found",
         "active summon": "the summon is still active",
         "delivery failed": "pushover delivery failed",
+        "webpush unavailable": "web push library is not installed on Home Assistant",
+        "vapid unavailable": "web push keys could not be prepared",
+        "invalid subscription": "browser subscription payload was invalid",
+        "invalid keys": "browser subscription keys were invalid",
+        "invalid body": "request body was invalid",
     }.get(normalized, normalized or "unknown")
 
 

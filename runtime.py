@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import base64
 import dataclasses
-from datetime import datetime, timedelta
+from collections.abc import Callable
+from datetime import datetime, time, timedelta
 import html
 import hashlib
 import hmac
@@ -14,6 +15,8 @@ from itertools import chain
 import json
 import logging
 import mimetypes
+import os
+import random
 from pathlib import Path
 import secrets
 from typing import Any
@@ -30,11 +33,18 @@ from homeassistant.exceptions import HomeAssistantError  # type: ignore
 from homeassistant.helpers.aiohttp_client import async_get_clientsession  # type: ignore
 from homeassistant.helpers import area_registry as ar, device_registry as dr, entity_registry as er  # type: ignore
 from homeassistant.helpers.dispatcher import async_dispatcher_send  # type: ignore
+from homeassistant.helpers.event import async_track_point_in_time  # type: ignore
 from homeassistant.helpers.storage import Store  # type: ignore
 from homeassistant.helpers.template import Template  # type: ignore
 from homeassistant.util import dt as dt_util  # type: ignore
 
 from .const import (
+    ALIVE_CHECK_MESSAGE,
+    ALIVE_CHECK_TITLE,
+    ALIVE_SCHEDULE_MAX_PER_DAY,
+    ALIVE_SCHEDULE_MIN_PER_DAY,
+    ALIVE_SOURCE_MANUAL,
+    ALIVE_SOURCE_SCHEDULE,
     ATTACHMENT_FILE_PATH,
     ATTR_ACKNOWLEDGED_AT,
     ATTR_ACKNOWLEDGED_BY,
@@ -44,6 +54,7 @@ from .const import (
     ATTR_DISPOSITION,
     ATTR_EMERGENCY_ACKNOWLEDGED_AFTER_SECONDS,
     ATTR_EVENT_ID,
+    ATTR_EVENT_KIND,
     ATTR_HISTORY,
     ATTR_LAST_TRIGGERED_AT,
     ATTR_MESSAGE,
@@ -58,6 +69,7 @@ from .const import (
     ATTR_PUSHOVER_EXPIRES_AT,
     ATTR_PUSHOVER_LAST_DELIVERED_AT,
     ATTR_PUSHOVER_RECEIPT,
+    ATTR_PUSHOVER_TITLE,
     ATTR_RATE_LIMITED_UNTIL,
     ATTR_REMINDER_COUNT,
     ATTR_SOURCE,
@@ -65,6 +77,7 @@ from .const import (
     ATTR_VOICE_NOTE_BASE_URL,
     ATTR_VOICE_NOTE_PATH,
     CONF_ALERT_TITLE,
+    CONF_ALIVE_CHECKS_PER_DAY,
     CONF_API_TOKEN,
     CONF_COOLDOWN_SECONDS,
     CONF_DEBUG_LOGGING,
@@ -90,6 +103,7 @@ from .const import (
     CONF_WEB_PASSWORD,
     CONF_WEB_USERNAME,
     DEFAULT_ALERT_TITLE,
+    DEFAULT_ALIVE_CHECKS_PER_DAY,
     DEFAULT_COOLDOWN_SECONDS,
     DEFAULT_ENABLE_WEB,
     DEFAULT_HISTORY_SIZE,
@@ -117,8 +131,10 @@ from .const import (
     DEFAULT_WEB_USERNAME,
     DISPATCH_STATE_UPDATED,
     DOMAIN,
+    EVENT_KIND_ALIVE,
     EVENT_ACKNOWLEDGED,
     EVENT_TRIGGERED,
+    ICON_PATH,
     PUSHOVER_CALLBACK_PATH,
     PUSHOVER_PRIORITY_DEFAULT,
     PUSHOVER_PRIORITY_EMERGENCY,
@@ -127,6 +143,19 @@ from .const import (
     PUSHOVER_PRIORITY_NORMAL,
     VOICE_NOTE_FILE_PATH,
     VOICE_NOTE_PLAY_PATH,
+    WEB_PATH,
+    STORE_ALIVE_ACTIVE_EVENT_ID,
+    STORE_ALIVE_HISTORY,
+    STORE_ALIVE_SCHEDULE,
+    STORE_ALIVE_WATCHED_EVENTS,
+    STORE_WEB_PUSH_SUBSCRIPTIONS,
+    STORE_WEB_PUSH_VAPID_PRIVATE,
+    STORE_WEB_PUSH_VAPID_PUBLIC,
+    WEB_PUSH_KEYS_DIR_NAME,
+    WEB_PUSH_MAX_SUBSCRIPTIONS,
+    WEB_PUSH_VAPID_PRIVATE_FILENAME,
+    WEB_PUSH_VAPID_PUBLIC_FILENAME,
+    WEB_PUSH_VAPID_SUB,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -325,12 +354,20 @@ class LorisSummonRuntime:
         self._recent_trigger_times: list[datetime] = []
         self._reminder_task: asyncio.Task[None] | None = None
         self._watched_events: dict[str, dict[str, Any]] = {}
+        self._alive_history: list[dict[str, Any]] = []
+        self._alive_active_event_id: str | None = None
+        self._alive_watched_events: dict[str, dict[str, Any]] = {}
+        self._alive_schedule_unsubs: list[Callable[[], None]] = []
+        self._alive_schedule_blob: dict[str, Any] = {}
+        self._web_push_vapid_private_pem: str | None = None
+        self._web_push_vapid_public_b64u: str | None = None
+        self._web_push_subscriptions: list[dict[str, Any]] = []
 
     async def async_initialize(self) -> None:
         # Restore persisted summon state so entities survive Home Assistant restarts
         stored = await self._store.async_load()
-        if not stored:
-            return
+        if not isinstance(stored, dict):
+            stored = {}
 
         history = stored.get(ATTR_HISTORY, [])
         if isinstance(history, list):
@@ -362,15 +399,65 @@ class LorisSummonRuntime:
         if isinstance(last_triggered, str):
             self._last_trigger_at = dt_util.parse_datetime(last_triggered)
 
+        alive_history = stored.get(STORE_ALIVE_HISTORY, [])
+        if isinstance(alive_history, list):
+            self._alive_history = [
+                self._normalize_loaded_alive_item(dict(item))
+                for item in alive_history
+                if isinstance(item, dict)
+            ][: self._history_size()]
+
+        self._alive_active_event_id = stored.get(STORE_ALIVE_ACTIVE_EVENT_ID)
+        if not isinstance(self._alive_active_event_id, str):
+            self._alive_active_event_id = None
+        else:
+            self._alive_active_event_id = self._alive_active_event_id.strip() or None
+
+        alive_watched = stored.get(STORE_ALIVE_WATCHED_EVENTS, [])
+        if isinstance(alive_watched, list):
+            self._alive_watched_events = {}
+            for item in alive_watched:
+                if not isinstance(item, dict):
+                    continue
+                event_id = str(item.get(ATTR_EVENT_ID) or "").strip()
+                if not event_id:
+                    continue
+                normalized_item = self._normalize_loaded_alive_item(dict(item))
+                history_item = next(
+                    (
+                        record
+                        for record in self._alive_history
+                        if str(record.get(ATTR_EVENT_ID) or "") == event_id
+                    ),
+                    None,
+                )
+                self._alive_watched_events[event_id] = (
+                    history_item if history_item is not None else normalized_item
+                )
+
+        schedule_blob = stored.get(STORE_ALIVE_SCHEDULE)
+        if isinstance(schedule_blob, dict):
+            self._alive_schedule_blob = dict(schedule_blob)
+
+        subs = stored.get(STORE_WEB_PUSH_SUBSCRIPTIONS, [])
+        if isinstance(subs, list):
+            self._web_push_subscriptions = [
+                dict(s) for s in subs if isinstance(s, dict)
+            ][:WEB_PUSH_MAX_SUBSCRIPTIONS]
+
+        await self._async_init_web_push_vapid(stored)
+
         self._debug(
             "restored %s history items with active event %s",
             len(self._history),
             self._active_event_id,
         )
         restored_outstanding = self._restore_outstanding_state()
-        if restored_outstanding:
+        restored_alive = self._restore_alive_outstanding_state()
+        if restored_outstanding or restored_alive:
             await self._async_save_state()
         self._notify_state_changed()
+        self._ensure_alive_schedule()
 
     async def async_trigger(
         self,
@@ -553,22 +640,39 @@ class LorisSummonRuntime:
         }
 
     async def async_handle_pushover_callback(self, data: dict[str, Any]) -> dict[str, Any]:
-        # Apply Pushover emergency callback data to the watched summon that created the receipt
+        # Apply Pushover emergency callback data to summons or alive checks that created the receipt
         receipt = str(data.get("receipt", "")).strip()
         if not receipt:
             return {"ok": False, "reason": "missing_receipt"}
 
         event = self._watched_event_by_receipt(receipt)
-        was_watched = event is not None
+        if event is None:
+            event = self._alive_watched_event_by_receipt(receipt)
+        is_alive = self._is_alive_event(event) if event is not None else False
+        was_watched = False
+        if event is not None:
+            event_id = str(event.get(ATTR_EVENT_ID) or "").strip()
+            if is_alive:
+                was_watched = event_id in self._alive_watched_events
+            else:
+                was_watched = event_id in self._watched_events
         if event is None:
             # Accept callbacks for known cleared events so Pushover does not keep retrying them
             event = self._event_by_receipt(receipt)
             if event is None:
+                event = self._alive_event_by_receipt(receipt)
+            if event is None:
                 return {"ok": False, "reason": "unknown_receipt"}
+            is_alive = self._is_alive_event(event)
 
+        prev_expired = bool(event.get(ATTR_PUSHOVER_EXPIRED))
         self._apply_pushover_callback_data(event, data)
         if str(data.get("acknowledged", "0")).strip() != "1":
-            await self._async_commit_state()
+            expired_now = bool(event.get(ATTR_PUSHOVER_EXPIRED)) and not prev_expired
+            if expired_now:
+                await self._async_finalize_emergency_expired(event, is_alive=is_alive)
+            else:
+                await self._async_commit_state()
             return {"ok": True, "receipt": receipt, "acknowledged": False}
 
         acknowledged_by = str(
@@ -587,11 +691,17 @@ class LorisSummonRuntime:
         )
         if event.get(ATTR_DISPOSITION) != "cancelled":
             event[ATTR_DISPOSITION] = "acknowledged"
-        if str(event.get(ATTR_EVENT_ID) or "") == str(self._active_event_id or ""):
-            self._active_event_id = None
-            self._cancel_reminder_task()
-        self._watched_events.pop(str(event.get(ATTR_EVENT_ID) or ""), None)
-        if was_watched:
+        event_id = str(event.get(ATTR_EVENT_ID) or "")
+        if is_alive:
+            if event_id == str(self._alive_active_event_id or ""):
+                self._alive_active_event_id = None
+            self._alive_watched_events.pop(event_id, None)
+        else:
+            if event_id == str(self._active_event_id or ""):
+                self._active_event_id = None
+                self._cancel_reminder_task()
+            self._watched_events.pop(event_id, None)
+        if was_watched and not is_alive:
             payload = dict(event)
             payload[ATTR_SOURCE] = "pushover_callback"
             self.hass.bus.async_fire(EVENT_ACKNOWLEDGED, payload)
@@ -637,7 +747,671 @@ class LorisSummonRuntime:
             SUMMARY_ACTIVE_EVENT: self.active_event,
             SUMMARY_MATCHING_EVENT: dict(matching) if matching else None,
             SUMMARY_WATCHED_EVENTS: [dict(item) for item in self._watched_events.values()],
+            "alive_history": [dict(item) for item in self._alive_history],
+            "alive_active_event": self._alive_active_event_record_public(),
+            "alive_watched_events": [
+                dict(item) for item in self._alive_watched_events.values()
+            ],
+            "alive_schedule_per_day": self._alive_checks_per_day(),
+            "web_push": {
+                "subscription_count": len(self._web_push_subscriptions),
+                "max_subscriptions": WEB_PUSH_MAX_SUBSCRIPTIONS,
+            },
         }
+
+    def alive_checks_browser_page(self) -> dict[str, Any]:
+        return {
+            "items": [self._alive_check_browser_item(item) for item in self._alive_history],
+        }
+
+    async def async_send_alive_check(self, source: str) -> dict[str, Any]:
+        now = dt_util.utcnow()
+        entry = self._create_history_entry(
+            ALIVE_CHECK_MESSAGE,
+            source,
+            PUSHOVER_PRIORITY_EMERGENCY,
+            None,
+            None,
+            None,
+            now,
+        )
+        entry[ATTR_EVENT_KIND] = EVENT_KIND_ALIVE
+        entry[ATTR_PUSHOVER_TITLE] = ALIVE_CHECK_TITLE
+        try:
+            delivery_metadata = await self._send_notification(entry)
+        except Exception as err:
+            _LOGGER.warning("Alive check Pushover delivery failed: %s", err)
+            return {"ok": False, "error": str(err)}
+        entry.update(delivery_metadata)
+        requires_attention = self._event_requires_attention(entry)
+        self._alive_history.insert(0, entry)
+        event_id = str(entry.get(ATTR_EVENT_ID) or "")
+        if requires_attention:
+            self._supersede_previous_alive_active(event_id)
+            entry[ATTR_ACTIVE] = True
+            self._alive_active_event_id = event_id
+            self._alive_watched_events[event_id] = entry
+        else:
+            self._finalize_alive_delivered_event(entry)
+        entry[ATTR_ACTIVE] = bool(entry.get(ATTR_ACTIVE))
+        self._trim_alive_history()
+        await self._async_commit_state()
+        self._notify_state_changed()
+        return {"ok": True, "event_id": event_id}
+
+    async def async_delete_alive_check(self, event_id: str) -> dict[str, Any]:
+        eid = str(event_id or "").strip()
+        if not eid:
+            return {"ok": False, "reason": "missing_event_id"}
+        event = self._alive_event_record(eid)
+        if event is None:
+            return {"ok": False, "reason": "not_found"}
+        if (
+            bool(event.get(ATTR_ACTIVE))
+            or str(self._alive_active_event_id or "") == eid
+            or eid in self._alive_watched_events
+        ):
+            return {"ok": False, "reason": "active_alive_check"}
+        self._alive_history = [
+            item
+            for item in self._alive_history
+            if str(item.get(ATTR_EVENT_ID) or "").strip() != eid
+        ]
+        self._alive_watched_events.pop(eid, None)
+        if str(self._alive_active_event_id or "") == eid:
+            self._alive_active_event_id = None
+        self._delete_attachment_file(event.get(ATTR_ATTACHMENT_PATH))
+        self._delete_attachment_file(event.get(ATTR_VOICE_NOTE_PATH))
+        await self._async_commit_state()
+        self._notify_state_changed()
+        return {"ok": True, "event_id": eid}
+
+    async def async_flush_alive_history(self) -> dict[str, Any]:
+        to_cancel = [
+            dict(e)
+            for e in self._alive_watched_events.values()
+            if self._event_requires_attention(e)
+        ]
+        for event in to_cancel:
+            await self._async_cancel_active_receipt(event)
+        attachment_paths: set[str] = set()
+        voice_note_paths: set[str] = set()
+        for item in self._alive_history:
+            ap = str(item.get(ATTR_ATTACHMENT_PATH) or "").strip()
+            vn = str(item.get(ATTR_VOICE_NOTE_PATH) or "").strip()
+            if ap:
+                attachment_paths.add(ap)
+            if vn:
+                voice_note_paths.add(vn)
+        removed = len(self._alive_history)
+        self._alive_watched_events.clear()
+        self._alive_active_event_id = None
+        self._alive_history = []
+        for path in attachment_paths | voice_note_paths:
+            self._delete_attachment_file(path)
+        await self._async_commit_state()
+        self._notify_state_changed()
+        return {"ok": True, "removed": removed}
+
+    @staticmethod
+    def _alive_seconds_to_ack_value(seconds: Any) -> int | None:
+        try:
+            value = int(seconds)
+        except (TypeError, ValueError):
+            return None
+        return value if value >= 0 else None
+
+    def _alive_check_browser_item(self, event: dict[str, Any]) -> dict[str, Any]:
+        event_id = str(event.get(ATTR_EVENT_ID) or "").strip()
+        ack_at = (
+            str(event.get(ATTR_PUSHOVER_ACKNOWLEDGED_AT) or "").strip()
+            or str(event.get(ATTR_ACKNOWLEDGED_AT) or "").strip()
+        )
+        return {
+            "event_id": event_id,
+            "triggered_at": event.get(ATTR_TRIGGERED_AT),
+            "acknowledged_at": ack_at or None,
+            "seconds_to_ack": self._alive_seconds_to_ack_value(
+                event.get(ATTR_EMERGENCY_ACKNOWLEDGED_AFTER_SECONDS)
+            ),
+            "pending": self._event_requires_attention(event),
+            "source": str(event.get(ATTR_SOURCE) or ""),
+        }
+
+    def _is_alive_event(self, event: dict[str, Any] | None) -> bool:
+        if event is None:
+            return False
+        if str(event.get(ATTR_EVENT_KIND) or "") == EVENT_KIND_ALIVE:
+            return True
+        source = str(event.get(ATTR_SOURCE) or "")
+        return source in {ALIVE_SOURCE_MANUAL, ALIVE_SOURCE_SCHEDULE} or source.startswith(
+            "alive_"
+        )
+
+    def _normalize_loaded_alive_item(self, item: dict[str, Any]) -> dict[str, Any]:
+        if self._is_alive_event(item):
+            item.setdefault(ATTR_EVENT_KIND, EVENT_KIND_ALIVE)
+        return item
+
+    def _alive_active_event_record(self) -> dict[str, Any] | None:
+        if not self._alive_active_event_id:
+            return None
+        return next(
+            (
+                item
+                for item in self._alive_history
+                if item.get(ATTR_EVENT_ID) == self._alive_active_event_id
+            ),
+            None,
+        )
+
+    def _alive_active_event_record_public(self) -> dict[str, Any] | None:
+        active = self._alive_active_event_record()
+        return dict(active) if active else None
+
+    def _alive_watched_event_by_receipt(self, receipt: str) -> dict[str, Any] | None:
+        watched_receipt = str(receipt or "").strip()
+        if not watched_receipt:
+            return None
+        return next(
+            (
+                item
+                for item in self._alive_watched_events.values()
+                if str(item.get(ATTR_PUSHOVER_RECEIPT) or "") == watched_receipt
+            ),
+            None,
+        )
+
+    def _alive_event_by_receipt(self, receipt: str) -> dict[str, Any] | None:
+        watched_receipt = str(receipt or "").strip()
+        if not watched_receipt:
+            return None
+        return next(
+            (
+                item
+                for item in self._alive_history
+                if str(item.get(ATTR_PUSHOVER_RECEIPT) or "") == watched_receipt
+            ),
+            None,
+        )
+
+    def _alive_event_record(self, event_id: str) -> dict[str, Any] | None:
+        eid = str(event_id or "").strip()
+        if not eid:
+            return None
+        for item in self._alive_history:
+            if str(item.get(ATTR_EVENT_ID) or "").strip() == eid:
+                return item
+        return None
+
+    def _supersede_previous_alive_active(self, new_event_id: str) -> None:
+        active = self._alive_active_event_record()
+        if active is None or str(active.get(ATTR_EVENT_ID) or "") == new_event_id:
+            return
+        active[ATTR_ACTIVE] = False
+        active[ATTR_NEXT_REMINDER_AT] = None
+        if active.get(ATTR_DISPOSITION) == "triggered":
+            active[ATTR_DISPOSITION] = "superseded"
+
+    def _finalize_alive_delivered_event(self, event: dict[str, Any]) -> bool:
+        return self._finalize_delivered_event(event)
+
+    def _trim_alive_history(self) -> None:
+        max_items = self._history_size()
+        watched_ids = set(self._alive_watched_events)
+        kept: list[dict[str, Any]] = []
+        non_watched_kept = 0
+        for item in self._alive_history:
+            event_id = str(item.get(ATTR_EVENT_ID) or "")
+            if event_id in watched_ids:
+                kept.append(item)
+                continue
+            if non_watched_kept < max_items:
+                kept.append(item)
+                non_watched_kept += 1
+        self._alive_history = kept
+
+    def _restore_alive_outstanding_state(self) -> bool:
+        state_changed = False
+        watched_events: dict[str, dict[str, Any]] = {}
+        for event_id, event in self._alive_watched_events.items():
+            if self._event_requires_attention(event):
+                watched_events[event_id] = event
+                continue
+            state_changed = self._finalize_alive_delivered_event(event) or state_changed
+        if watched_events != self._alive_watched_events:
+            self._alive_watched_events = watched_events
+            state_changed = True
+        active = self._alive_active_event_record()
+        if active is None:
+            if self._alive_active_event_id is not None:
+                self._alive_active_event_id = None
+                state_changed = True
+            return state_changed
+        if self._event_requires_attention(active):
+            event_id = str(active.get(ATTR_EVENT_ID) or "").strip()
+            if event_id and event_id not in self._alive_watched_events:
+                self._alive_watched_events[event_id] = active
+                state_changed = True
+            return state_changed
+        state_changed = self._finalize_alive_delivered_event(active) or state_changed
+        if self._alive_active_event_id is not None:
+            self._alive_active_event_id = None
+            state_changed = True
+        return state_changed
+
+    def _cancel_alive_schedule_handles(self) -> None:
+        for unsub in self._alive_schedule_unsubs:
+            try:
+                unsub()
+            except Exception:  # noqa: BLE001
+                pass
+        self._alive_schedule_unsubs.clear()
+
+    def _time_zone(self):
+        return dt_util.get_time_zone(self.hass.config.time_zone) or dt_util.UTC
+
+    def _alive_schedule_target_local_date(self) -> datetime:
+        tz = self._time_zone()
+        now_local = dt_util.now(tz)
+        end_window = datetime.combine(now_local.date(), time(22, 30), tzinfo=tz)
+        if now_local > end_window:
+            return datetime.combine(
+                now_local.date() + timedelta(days=1), time(0, 0), tzinfo=tz
+            )
+        return datetime.combine(now_local.date(), time(0, 0), tzinfo=tz)
+
+    def _alive_schedule_day_key(self, day_anchor: datetime) -> str:
+        return day_anchor.date().isoformat()
+
+    def _build_new_alive_schedule(self, day_anchor: datetime, tz) -> dict[str, Any]:
+        target_date = day_anchor.date()
+        start_local = datetime.combine(target_date, time(8, 30), tzinfo=tz)
+        end_local = datetime.combine(target_date, time(22, 30), tzinfo=tz)
+        start_utc = dt_util.as_utc(start_local)
+        end_utc = dt_util.as_utc(end_local)
+        span = max(0, int((end_utc - start_utc).total_seconds()))
+        per_day = self._alive_checks_per_day()
+        if span <= 0:
+            fire_times = [start_utc] * per_day
+        else:
+            pool = span + 1
+            sample_n = min(per_day, pool)
+            offsets = sorted(random.sample(range(pool), sample_n))
+            fire_times = [start_utc + timedelta(seconds=int(o)) for o in offsets]
+        slots = [{"at": t.isoformat(), "fired": False} for t in fire_times]
+        return {
+            "day": target_date.isoformat(),
+            "slots": slots,
+            "scheduled_per_day": per_day,
+        }
+
+    def _ensure_alive_schedule(self) -> None:
+        if not self.hass.is_running:
+            return
+        self._cancel_alive_schedule_handles()
+        tz = self._time_zone()
+        day_anchor = self._alive_schedule_target_local_date()
+        day_key = self._alive_schedule_day_key(day_anchor)
+        want = self._alive_checks_per_day()
+        slots = self._alive_schedule_blob.get("slots")
+        stored_per = self._alive_schedule_blob.get("scheduled_per_day")
+        if stored_per is None and isinstance(slots, list):
+            stored_per = len(slots)
+        if (
+            self._alive_schedule_blob.get("day") != day_key
+            or not isinstance(slots, list)
+            or len(slots) != want
+            or stored_per != want
+        ):
+            self._alive_schedule_blob = self._build_new_alive_schedule(day_anchor, tz)
+            self.hass.async_create_task(self._async_commit_state())
+        slots_list = self._alive_schedule_blob.get("slots")
+        if not isinstance(slots_list, list):
+            return
+        now_utc = dt_util.utcnow()
+        for index, slot in enumerate(slots_list):
+            if not isinstance(slot, dict) or slot.get("fired"):
+                continue
+            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
+            if when is None or when <= now_utc:
+                continue
+
+            async def _fire_scheduled_alive(_now: datetime, idx: int = index) -> None:
+                await self._async_fire_alive_schedule_slot(idx)
+
+            unsub = async_track_point_in_time(self.hass, _fire_scheduled_alive, when)
+            self._alive_schedule_unsubs.append(unsub)
+
+    async def _async_fire_alive_schedule_slot(self, slot_index: int) -> None:
+        slots_raw = self._alive_schedule_blob.get("slots")
+        if not isinstance(slots_raw, list) or slot_index < 0 or slot_index >= len(slots_raw):
+            return
+        slot = slots_raw[slot_index]
+        if not isinstance(slot, dict) or slot.get("fired"):
+            return
+        result = await self.async_send_alive_check(ALIVE_SOURCE_SCHEDULE)
+        if result.get("ok"):
+            slot["fired"] = True
+            await self._async_commit_state()
+        self._ensure_alive_schedule()
+
+    async def _async_finalize_emergency_expired(
+        self,
+        event: dict[str, Any],
+        *,
+        is_alive: bool,
+    ) -> None:
+        # Pushover ended the emergency retry window without an acknowledgment
+        event[ATTR_ACTIVE] = False
+        event[ATTR_NEXT_REMINDER_AT] = None
+        if str(event.get(ATTR_DISPOSITION) or "").strip() == "triggered":
+            event[ATTR_DISPOSITION] = "expired"
+        event_id = str(event.get(ATTR_EVENT_ID) or "")
+        if is_alive:
+            if event_id == str(self._alive_active_event_id or ""):
+                self._alive_active_event_id = None
+            self._alive_watched_events.pop(event_id, None)
+        else:
+            if event_id == str(self._active_event_id or ""):
+                self._active_event_id = None
+                self._cancel_reminder_task()
+            self._watched_events.pop(event_id, None)
+        await self._async_send_web_push_missing_ack(event, is_alive=is_alive)
+        await self._async_commit_state()
+        self._notify_state_changed()
+
+    async def _async_send_web_push_missing_ack(
+        self,
+        event: dict[str, Any],
+        *,
+        is_alive: bool,
+    ) -> None:
+        try:
+            import pywebpush  # noqa: F401
+        except ImportError:
+            self._debug("pywebpush is not installed; skipping web push")
+            return
+        if not self._web_push_subscriptions:
+            return
+        if not self._web_push_vapid_private_pem:
+            if not await self.async_ensure_web_push_vapid_keys():
+                return
+        private_pem = self._web_push_vapid_private_pem
+        if not private_pem:
+            return
+        event_id = str(event.get(ATTR_EVENT_ID) or "").strip()
+        title = (
+            "Alive check not acknowledged"
+            if is_alive
+            else "Emergency summon not acknowledged"
+        )
+        if is_alive:
+            body = (
+                "The Pushover emergency window ended with no acknowledgment for an Alive Check."
+            )
+        else:
+            msg_preview = str(event.get(ATTR_MESSAGE) or "").strip().replace("\n", " ")
+            if len(msg_preview) > 120:
+                msg_preview = f"{msg_preview[:117]}..."
+            body = (
+                "The Pushover emergency window ended with no acknowledgment."
+                + (f' Summon: "{msg_preview}"' if msg_preview else "")
+            )
+        payload = json.dumps(
+            {
+                "title": title,
+                "body": body,
+                "path": WEB_PATH,
+                "tag": f"loris-{event_id}-{'alive' if is_alive else 'summon'}",
+                "icon": ICON_PATH,
+            },
+            separators=(",", ":"),
+        )
+        dead_endpoints: set[str] = set()
+        for sub in list(self._web_push_subscriptions):
+            endpoint = str(sub.get("endpoint") or "").strip()
+            if not endpoint:
+                continue
+            result = await self.hass.async_add_executor_job(
+                _web_push_send_sync,
+                sub,
+                payload,
+                private_pem,
+                WEB_PUSH_VAPID_SUB,
+            )
+            if result == "gone":
+                dead_endpoints.add(endpoint)
+        if dead_endpoints:
+            self._web_push_subscriptions = [
+                s
+                for s in self._web_push_subscriptions
+                if str(s.get("endpoint") or "").strip() not in dead_endpoints
+            ]
+            await self._async_save_state()
+
+    async def async_ensure_web_push_vapid_keys(self) -> bool:
+        if self._web_push_vapid_private_pem and self._web_push_vapid_public_b64u:
+            return True
+        if await self._async_load_web_push_vapid_from_disk():
+            return True
+        return await self._async_generate_and_write_web_push_vapid()
+
+    async def async_regenerate_web_push_keys(self) -> dict[str, Any]:
+        """Rotate VAPID keys on disk and clear subscriptions (clients must re-subscribe)."""
+        try:
+            import pywebpush  # noqa: F401
+        except ImportError:
+            return {"ok": False, "error": "webpush_unavailable"}
+        await self.hass.async_add_executor_job(self._sync_remove_web_push_vapid_files)
+        self._web_push_vapid_private_pem = None
+        self._web_push_vapid_public_b64u = None
+        self._web_push_subscriptions = []
+        if not await self._async_generate_and_write_web_push_vapid():
+            return {"ok": False, "error": "vapid_generation_failed"}
+        await self._async_save_state()
+        self._notify_state_changed()
+        try:
+            await self.hass.services.async_call(
+                "persistent_notification",
+                "create",
+                {
+                    "title": "Lori's Summon: Web Push keys rotated",
+                    "message": (
+                        "New VAPID keys were written to disk and saved subscriptions were cleared. "
+                        "Open the summon page and enable browser notifications again."
+                    ),
+                    "notification_id": f"{DOMAIN}_webpush_keys_regenerated",
+                },
+            )
+        except (HomeAssistantError, ValueError, TypeError) as err:
+            _LOGGER.info(
+                "Web Push keys rotated (notification not shown: %s); "
+                "re-enable browser notifications on the summon page.",
+                err,
+            )
+        return {
+            "ok": True,
+            "public_key": self._web_push_vapid_public_b64u or "",
+        }
+
+    def _web_push_keys_dir(self) -> Path:
+        return Path(self.hass.config.path(DOMAIN)) / WEB_PUSH_KEYS_DIR_NAME
+
+    def _web_push_private_key_path(self) -> Path:
+        return self._web_push_keys_dir() / WEB_PUSH_VAPID_PRIVATE_FILENAME
+
+    def _web_push_public_key_path(self) -> Path:
+        return self._web_push_keys_dir() / WEB_PUSH_VAPID_PUBLIC_FILENAME
+
+    def _sync_load_web_push_vapid_files(self) -> tuple[str, str] | None:
+        priv_path = self._web_push_private_key_path()
+        pub_path = self._web_push_public_key_path()
+        if not priv_path.is_file() or not pub_path.is_file():
+            return None
+        pem = priv_path.read_text(encoding="utf-8").strip()
+        pub_b64 = pub_path.read_text(encoding="utf-8").strip()
+        if not pem or not pub_b64:
+            return None
+        derived_pub = _sync_vapid_public_b64u_from_private_pem(pem)
+        if derived_pub is None or derived_pub != pub_b64:
+            _LOGGER.warning(
+                "Ignoring invalid Web Push VAPID key files at %s and %s",
+                priv_path,
+                pub_path,
+            )
+            return None
+        return pem, pub_b64
+
+    def _sync_write_web_push_vapid_files(self, pem: str, pub_b64u: str) -> None:
+        base = self._web_push_keys_dir()
+        base.mkdir(parents=True, exist_ok=True)
+        priv_path = self._web_push_private_key_path()
+        pub_path = self._web_push_public_key_path()
+        pem_text = pem if pem.endswith("\n") else f"{pem}\n"
+        priv_path.write_text(pem_text, encoding="utf-8")
+        os.chmod(priv_path, 0o600)
+        pub_path.write_text(f"{pub_b64u.strip()}\n", encoding="utf-8")
+        os.chmod(pub_path, 0o644)
+
+    def _sync_remove_web_push_vapid_files(self) -> None:
+        for path in (self._web_push_private_key_path(), self._web_push_public_key_path()):
+            try:
+                path.unlink(missing_ok=True)
+            except OSError:
+                pass
+
+    async def _async_load_web_push_vapid_from_disk(self) -> bool:
+        loaded = await self.hass.async_add_executor_job(
+            self._sync_load_web_push_vapid_files
+        )
+        if loaded is None:
+            return False
+        pem, pub_b64 = loaded
+        self._web_push_vapid_private_pem = pem
+        self._web_push_vapid_public_b64u = pub_b64
+        return True
+
+    async def _async_write_web_push_vapid_to_disk(self, pem: str, pub_b64u: str) -> None:
+        def _write() -> None:
+            self._sync_write_web_push_vapid_files(pem, pub_b64u)
+
+        await self.hass.async_add_executor_job(_write)
+
+    def _stored_has_legacy_web_push_vapid(self, stored: dict[str, Any]) -> bool:
+        priv = stored.get(STORE_WEB_PUSH_VAPID_PRIVATE)
+        pub = stored.get(STORE_WEB_PUSH_VAPID_PUBLIC)
+        return (isinstance(priv, str) and priv.strip()) or (
+            isinstance(pub, str) and pub.strip()
+        )
+
+    async def _async_init_web_push_vapid(self, stored: dict[str, Any]) -> None:
+        # Prefer PEM + public on disk; migrate from JSON store once; otherwise generate on first use.
+        if await self._async_load_web_push_vapid_from_disk():
+            if self._stored_has_legacy_web_push_vapid(stored):
+                await self._async_save_state()
+            return
+
+        vapid_priv = stored.get(STORE_WEB_PUSH_VAPID_PRIVATE)
+        vapid_pub = stored.get(STORE_WEB_PUSH_VAPID_PUBLIC)
+        if (
+            isinstance(vapid_priv, str)
+            and vapid_priv.strip()
+            and isinstance(vapid_pub, str)
+            and vapid_pub.strip()
+        ):
+            pem = vapid_priv.strip()
+            pub_b64 = vapid_pub.strip()
+            derived_pub = await self.hass.async_add_executor_job(
+                _sync_vapid_public_b64u_from_private_pem,
+                pem,
+            )
+            if derived_pub is None or derived_pub != pub_b64:
+                _LOGGER.warning(
+                    "Ignoring invalid legacy Web Push VAPID keys from stored state; generating new keys"
+                )
+                if not await self._async_generate_and_write_web_push_vapid():
+                    self._debug("web push vapid keys were not created at startup (optional)")
+                return
+            self._web_push_vapid_private_pem = pem
+            self._web_push_vapid_public_b64u = pub_b64
+            await self._async_write_web_push_vapid_to_disk(pem, pub_b64)
+            await self._async_save_state()
+            return
+
+        if not await self._async_generate_and_write_web_push_vapid():
+            self._debug("web push vapid keys were not created at startup (optional)")
+
+    async def _async_generate_and_write_web_push_vapid(self) -> bool:
+        try:
+            pem, pub_b64 = await self.hass.async_add_executor_job(
+                _sync_generate_web_push_vapid_pair
+            )
+        except Exception as err:
+            _LOGGER.warning("Web Push VAPID key generation failed: %s", err)
+            return False
+        self._web_push_vapid_private_pem = pem
+        self._web_push_vapid_public_b64u = pub_b64
+        await self._async_write_web_push_vapid_to_disk(pem, pub_b64)
+        return True
+
+    def web_push_public_config(self) -> dict[str, Any]:
+        return {
+            "public_key": self._web_push_vapid_public_b64u or "",
+            "subscription_count": len(self._web_push_subscriptions),
+            "max_subscriptions": WEB_PUSH_MAX_SUBSCRIPTIONS,
+        }
+
+    async def async_register_web_push_subscription(self, info: Any) -> dict[str, Any]:
+        try:
+            import pywebpush  # noqa: F401
+        except ImportError:
+            return {"ok": False, "reason": "webpush_unavailable"}
+        if not isinstance(info, dict):
+            return {"ok": False, "reason": "invalid_body"}
+        endpoint = str(info.get("endpoint") or "").strip()
+        keys = info.get("keys")
+        if not endpoint or not isinstance(keys, dict):
+            return {"ok": False, "reason": "invalid_subscription"}
+        p256 = str(keys.get("p256dh") or "").strip()
+        auth_k = str(keys.get("auth") or "").strip()
+        if not p256 or not auth_k:
+            return {"ok": False, "reason": "invalid_keys"}
+        sub_record: dict[str, Any] = {
+            "endpoint": endpoint,
+            "keys": {"p256dh": p256, "auth": auth_k},
+        }
+        exp = info.get("expirationTime")
+        if exp is not None:
+            sub_record["expirationTime"] = exp
+        if not await self.async_ensure_web_push_vapid_keys():
+            return {"ok": False, "reason": "vapid_unavailable"}
+        self._web_push_subscriptions = [
+            s
+            for s in self._web_push_subscriptions
+            if str(s.get("endpoint") or "").strip() != endpoint
+        ]
+        self._web_push_subscriptions.insert(0, sub_record)
+        self._web_push_subscriptions = self._web_push_subscriptions[
+            :WEB_PUSH_MAX_SUBSCRIPTIONS
+        ]
+        await self._async_save_state()
+        return {"ok": True, "count": len(self._web_push_subscriptions)}
+
+    async def async_unregister_web_push_subscription(self, endpoint: str) -> dict[str, Any]:
+        ep = str(endpoint or "").strip()
+        if not ep:
+            return {"ok": False, "reason": "missing_endpoint"}
+        before = len(self._web_push_subscriptions)
+        self._web_push_subscriptions = [
+            s
+            for s in self._web_push_subscriptions
+            if str(s.get("endpoint") or "").strip() != ep
+        ]
+        if len(self._web_push_subscriptions) == before:
+            return {"ok": False, "reason": "not_found"}
+        await self._async_save_state()
+        return {"ok": True, "count": len(self._web_push_subscriptions)}
 
     async def async_clear_watched_events(self) -> int:
         # Cancel watched emergency retries and close them locally so the UI stops waiting on them
@@ -747,6 +1521,7 @@ class LorisSummonRuntime:
 
     async def async_shutdown(self) -> None:
         # Cancel background reminders so unloads do not leave orphaned tasks behind
+        self._cancel_alive_schedule_handles()
         task = self._reminder_task
         self._reminder_task = None
         if task is None:
@@ -1073,6 +1848,15 @@ class LorisSummonRuntime:
                 ATTR_LAST_TRIGGERED_AT: (
                     self._last_trigger_at.isoformat() if self._last_trigger_at else None
                 ),
+                STORE_ALIVE_HISTORY: self._alive_history[: self._history_size()],
+                STORE_ALIVE_ACTIVE_EVENT_ID: self._alive_active_event_id,
+                STORE_ALIVE_WATCHED_EVENTS: [
+                    dict(item) for item in self._alive_watched_events.values()
+                ],
+                STORE_ALIVE_SCHEDULE: dict(self._alive_schedule_blob),
+                STORE_WEB_PUSH_SUBSCRIPTIONS: [
+                    dict(s) for s in self._web_push_subscriptions
+                ],
             }
         )
 
@@ -1169,7 +1953,14 @@ class LorisSummonRuntime:
         device = self._pushover_device()
         if device:
             form.add_field("device", device)
-        form.add_field("title", str(self._value(CONF_ALERT_TITLE) or DEFAULT_ALERT_TITLE))
+        form.add_field(
+            "title",
+            str(
+                payload.get(ATTR_PUSHOVER_TITLE)
+                or self._value(CONF_ALERT_TITLE)
+                or DEFAULT_ALERT_TITLE
+            ),
+        )
         voice_note_url = self.voice_note_player_url_for_payload(payload)
         attachment_url = self.attachment_url_for_payload(payload)
         form.add_field("message", self._render_message(payload))
@@ -1541,6 +2332,14 @@ class LorisSummonRuntime:
     def _history_size(self) -> int:
         return int(self._value(CONF_HISTORY_SIZE) or DEFAULT_HISTORY_SIZE)
 
+    def _alive_checks_per_day(self) -> int:
+        raw = self._value(CONF_ALIVE_CHECKS_PER_DAY)
+        try:
+            n = int(raw)
+        except (TypeError, ValueError):
+            n = DEFAULT_ALIVE_CHECKS_PER_DAY
+        return max(ALIVE_SCHEDULE_MIN_PER_DAY, min(n, ALIVE_SCHEDULE_MAX_PER_DAY))
+
     def _preview_trigger(
         self,
         message: str,
@@ -1860,6 +2659,8 @@ class LorisSummonRuntime:
         event[ATTR_PUSHOVER_ACKNOWLEDGED_BY_DEVICE] = str(
             data.get("acknowledged_by_device") or ""
         ).strip() or None
+        if str(data.get("expired", "0")).strip() == "1":
+            event[ATTR_PUSHOVER_EXPIRED] = True
 
     def _apply_local_acknowledgment(
         self,
@@ -2164,6 +2965,77 @@ class LorisSummonRuntime:
             return [max(0, min(255, int(channel))) for channel in value]
         except (TypeError, ValueError):
             return None
+
+
+def _sync_generate_web_push_vapid_pair() -> tuple[str, str]:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
+    pem = private_key.private_bytes(
+        encoding=serialization.Encoding.PEM,
+        format=serialization.PrivateFormat.PKCS8,
+        encryption_algorithm=serialization.NoEncryption(),
+    ).decode("utf-8")
+    pub_bytes = private_key.public_key().public_bytes(
+        encoding=serialization.Encoding.X962,
+        format=serialization.PublicFormat.UncompressedPoint,
+    )
+    return pem, _jwt_b64encode(pub_bytes)
+
+
+def _sync_vapid_public_b64u_from_private_pem(private_pem: str) -> str | None:
+    from cryptography.hazmat.backends import default_backend
+    from cryptography.hazmat.primitives import serialization
+
+    try:
+        private_key = serialization.load_pem_private_key(
+            private_pem.encode("utf-8"),
+            password=None,
+            backend=default_backend(),
+        )
+    except Exception:
+        return None
+    try:
+        pub_bytes = private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.X962,
+            format=serialization.PublicFormat.UncompressedPoint,
+        )
+    except Exception:
+        return None
+    return _jwt_b64encode(pub_bytes)
+
+
+def _web_push_send_sync(
+    subscription_info: dict[str, Any],
+    data: str,
+    private_pem: str,
+    sub_claim: str,
+) -> str | None:
+    """Return None on success, or \"gone\" if the subscription should be removed."""
+    from pywebpush import WebPushException, webpush
+
+    try:
+        webpush(
+            subscription_info=subscription_info,
+            data=data,
+            vapid_private_key=private_pem,
+            vapid_claims={"sub": sub_claim},
+            ttl=3600,
+            timeout=20,
+        )
+        return None
+    except WebPushException as exc:
+        resp = getattr(exc, "response", None)
+        code = getattr(resp, "status_code", None) if resp is not None else None
+        if code in (404, 410):
+            return "gone"
+        _LOGGER.warning("Web Push delivery failed: %s", exc)
+        return None
+    except Exception as exc:
+        _LOGGER.warning("Web Push delivery error: %s", exc)
+        return None
 
 
 def _as_list(value: Any) -> list[str]:

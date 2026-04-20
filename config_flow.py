@@ -21,6 +21,7 @@ from homeassistant.helpers.selector import (  # type: ignore
 
 from .const import (
     CONF_ALERT_TITLE,
+    CONF_ALIVE_CHECKS_PER_DAY,
     CONF_API_TOKEN,
     CONF_COOLDOWN_SECONDS,
     CONF_DEBUG_LOGGING,
@@ -46,6 +47,7 @@ from .const import (
     CONF_WEB_PASSWORD,
     CONF_WEB_USERNAME,
     DEFAULT_ALERT_TITLE,
+    DEFAULT_ALIVE_CHECKS_PER_DAY,
     DEFAULT_COOLDOWN_SECONDS,
     DEFAULT_DEBUG_LOGGING,
     DEFAULT_ENABLE_WEB,
@@ -69,6 +71,8 @@ from .const import (
     DEFAULT_WEB_PASSWORD,
     DEFAULT_WEB_USERNAME,
     DOMAIN,
+    ALIVE_SCHEDULE_MAX_PER_DAY,
+    ALIVE_SCHEDULE_MIN_PER_DAY,
 )
 
 
@@ -198,6 +202,14 @@ def _build_schema(*, include_name: bool = True) -> vol.Schema:
         NumberSelectorConfig(min=5, max=100, step=1,
                              mode=NumberSelectorMode.BOX)
     )
+    fields[vol.Optional(CONF_ALIVE_CHECKS_PER_DAY)] = NumberSelector(
+        NumberSelectorConfig(
+            min=ALIVE_SCHEDULE_MIN_PER_DAY,
+            max=ALIVE_SCHEDULE_MAX_PER_DAY,
+            step=1,
+            mode=NumberSelectorMode.BOX,
+        )
+    )
     fields[vol.Optional(CONF_LIGHT_TARGET)] = TargetSelector(
         TargetSelectorConfig(entity=EntityFilterSelectorConfig(domain="light"))
     )
@@ -240,6 +252,7 @@ def _defaults(*, include_name: bool) -> dict[str, Any]:
         CONF_RATE_LIMIT_WINDOW_SECONDS: DEFAULT_RATE_LIMIT_WINDOW_SECONDS,
         CONF_MAX_TRIGGERS_PER_WINDOW: DEFAULT_MAX_TRIGGERS_PER_WINDOW,
         CONF_HISTORY_SIZE: DEFAULT_HISTORY_SIZE,
+        CONF_ALIVE_CHECKS_PER_DAY: DEFAULT_ALIVE_CHECKS_PER_DAY,
         CONF_LIGHT_TARGET: {},
         CONF_TRIGGER_LIGHTS: DEFAULT_TRIGGER_LIGHTS,
         CONF_LIGHT_FLASH_COUNT: DEFAULT_LIGHT_FLASH_COUNT,

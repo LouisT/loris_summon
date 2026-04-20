@@ -15,6 +15,7 @@
                 "description": "Configure notifications, light flashing, and the external API endpoints.",
                 "data": {
                     "name": "Name",
+                    "alive_checks_per_day": "Alive checks per day (scheduled)",
                     "pushover_app_token": "Pushover app token",
                     "pushover_user_key": "Pushover user key",
                     "pushover_device": "Pushover device",
@@ -49,6 +50,7 @@
             "init": {
                 "title": "Lori's Summon",
                 "data": {
+                    "alive_checks_per_day": "Alive checks per day (scheduled)",
                     "pushover_app_token": "Pushover app token",
                     "pushover_user_key": "Pushover user key",
                     "pushover_device": "Pushover device",

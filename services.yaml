@@ -38,6 +38,12 @@ test_actions:
       selector:
         text:
 
+regenerate_web_push_keys:
+  name: Regenerate Web Push keys
+  description: >
+    Delete the on-disk VAPID key pair, clear saved browser subscriptions, generate new keys,
+    and persist state. Browsers must open the summon page and enable notifications again.
+
 acknowledge:
   name: Acknowledge notifications
   description: Acknowledge all outstanding tracked notifications.

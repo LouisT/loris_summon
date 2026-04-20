@@ -13,6 +13,7 @@
             "user": {
                 "data": {
                     "alert_title": "Notification title",
+                    "alive_checks_per_day": "Alive checks per day (scheduled)",
                     "api_token": "External API token",
                     "cooldown_seconds": "Cooldown seconds",
                     "debug_logging": "Debug logging",
@@ -49,6 +50,7 @@
             "init": {
                 "data": {
                     "alert_title": "Notification title",
+                    "alive_checks_per_day": "Alive checks per day (scheduled)",
                     "api_token": "External API token",
                     "cooldown_seconds": "Cooldown seconds",
                     "debug_logging": "Debug logging",
