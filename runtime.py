@@ -753,6 +753,8 @@ class LorisSummonRuntime:
                 dict(item) for item in self._alive_watched_events.values()
             ],
             "alive_schedule_per_day": self._alive_checks_per_day(),
+            "alive_schedule_day": str(self._alive_schedule_blob.get("day") or ""),
+            "alive_schedule_slots": self._alive_schedule_slots_for_status(),
             "web_push": {
                 "subscription_count": len(self._web_push_subscriptions),
                 "max_subscriptions": WEB_PUSH_MAX_SUBSCRIPTIONS,
@@ -762,6 +764,8 @@ class LorisSummonRuntime:
     def alive_checks_browser_page(self) -> dict[str, Any]:
         return {
             "items": [self._alive_check_browser_item(item) for item in self._alive_history],
+            "alive_schedule_day": str(self._alive_schedule_blob.get("day") or ""),
+            "alive_schedule_slots": self._alive_schedule_slots_for_status(),
         }
 
     async def async_send_alive_check(self, source: str) -> dict[str, Any]:
@@ -1023,6 +1027,36 @@ class LorisSummonRuntime:
 
     def _alive_schedule_day_key(self, day_anchor: datetime) -> str:
         return day_anchor.date().isoformat()
+
+    def _alive_schedule_slots_for_status(self) -> list[dict[str, Any]]:
+        """Return today's scheduled alive times for the browser (Home Assistant local time)."""
+        slots_raw = self._alive_schedule_blob.get("slots")
+        if not isinstance(slots_raw, list):
+            return []
+        tz = self._time_zone()
+        out: list[dict[str, Any]] = []
+        for slot in slots_raw:
+            if not isinstance(slot, dict):
+                continue
+            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
+            if when is None:
+                continue
+            if when.tzinfo is None:
+                when = when.replace(tzinfo=dt_util.UTC)
+            local_when = when.astimezone(tz)
+            hour12 = local_when.strftime("%I").lstrip("0") or "12"
+            minute = local_when.strftime("%M")
+            ampm = local_when.strftime("%p").lower()
+            local_label = f"{hour12}:{minute} {ampm}"
+            out.append(
+                {
+                    "at": when.isoformat(),
+                    "fired": bool(slot.get("fired")),
+                    "local_time": local_label,
+                }
+            )
+        out.sort(key=lambda x: x["at"])
+        return out
 
     def _build_new_alive_schedule(self, day_anchor: datetime, tz) -> dict[str, Any]:
         target_date = day_anchor.date()

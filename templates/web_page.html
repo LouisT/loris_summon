@@ -707,6 +707,49 @@
       gap: 0.65rem 1rem;
     }
 
+    .alive-schedule {
+      margin-bottom: 1rem;
+      padding: 0.75rem 0.9rem;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(0, 0, 0, 0.18);
+    }
+
+    .alive-schedule-title {
+      margin: 0 0 0.35rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+    }
+
+    .alive-schedule-caption {
+      margin: 0 0 0.65rem;
+      font-size: 0.82rem;
+      line-height: 1.35;
+      color: rgba(255, 255, 255, 0.62);
+    }
+
+    .alive-schedule-slots {
+      margin: 0;
+      padding-left: 1.15rem;
+      color: rgba(255, 255, 255, 0.84);
+      font-size: 0.88rem;
+    }
+
+    .alive-schedule-slots li {
+      margin: 0.22rem 0;
+    }
+
+    .alive-schedule-slots li.alive-schedule-fired {
+      color: rgba(255, 255, 255, 0.48);
+    }
+
+    .alive-schedule-slots li.alive-schedule-fired .alive-schedule-sent {
+      margin-left: 0.35rem;
+      font-size: 0.78rem;
+      color: rgba(255, 255, 255, 0.42);
+    }
+
     .modal-overlay {
       position: fixed;
       inset: 0;
@@ -1665,6 +1708,11 @@
                 <button class="secondary-button" id="alive-send-button" type="button">Send alive check now</button>
                 <p class="alive-toolbar-status" id="alive-toolbar-status" aria-live="polite"></p>
               </div>
+            </div>
+            <div class="alive-schedule" aria-labelledby="alive-schedule-heading">
+              <h3 class="alive-schedule-title" id="alive-schedule-heading">Today's random check times</h3>
+              <p class="alive-schedule-caption" id="alive-schedule-caption">Today's random slots (local Home Assistant time) appear here once loaded.</p>
+              <ul class="alive-schedule-slots" id="alive-schedule-slots"></ul>
             </div>
             <div class="alive-list-wrap">
               <p class="alive-list-status" id="alive-list-status">Open this tab to load alive checks.</p>
@@ -2871,6 +2919,26 @@
       ].join("~")).join("|");
     }
 
+    function aliveScheduleSignature(payload) {
+      const day = String((payload && payload.alive_schedule_day) || "").trim();
+      const slots = Array.isArray(payload && payload.alive_schedule_slots) ? payload.alive_schedule_slots : [];
+      if (!day && slots.length === 0) {
+        return "";
+      }
+      return [
+        day,
+        slots.map((slot) => [
+          String((slot && slot.at) || ""),
+          slot && slot.fired ? "1" : "0",
+          String((slot && slot.local_time) || ""),
+        ].join("~")).join(";"),
+      ].join("|");
+    }
+
+    function alivePanelSignature(payload) {
+      return `${aliveHistorySignature(payload)}\u0001${aliveScheduleSignature(payload)}`;
+    }
+
     function aliveRowExpired(item) {
       return Boolean(item && item.pushover_expired);
     }
@@ -2974,6 +3042,52 @@
         if (resolved && resolved.pushover_expired && !previousEvent.pushover_expired) {
           showToast(randomErrorMessage("alive check expired"), "error");
         }
+      });
+    }
+
+    function renderAliveSchedule(payload) {
+      const listEl = document.getElementById("alive-schedule-slots");
+      const captionEl = document.getElementById("alive-schedule-caption");
+      if (!listEl) {
+        return;
+      }
+      const day = String((payload && payload.alive_schedule_day) || "").trim();
+      const slots = Array.isArray(payload && payload.alive_schedule_slots) ? payload.alive_schedule_slots : [];
+      if (captionEl) {
+        if (day) {
+          captionEl.textContent =
+            `Calendar day ${day} in Home Assistant's time zone. Times below are local to that zone.`;
+        } else {
+          captionEl.textContent =
+            "Today's random slots (local Home Assistant time) appear here once loaded.";
+        }
+      }
+      listEl.innerHTML = "";
+      if (slots.length === 0) {
+        const li = document.createElement("li");
+        li.textContent = day ? "No scheduled random slots on file for this day yet." : "Waiting for schedule…";
+        listEl.appendChild(li);
+        return;
+      }
+      slots.forEach((slot) => {
+        if (!slot) {
+          return;
+        }
+        const li = document.createElement("li");
+        const fired = Boolean(slot.fired);
+        if (fired) {
+          li.classList.add("alive-schedule-fired");
+        }
+        const timeSpan = document.createElement("span");
+        timeSpan.textContent = String(slot.local_time || "").trim() || String(slot.at || "").trim() || "—";
+        li.appendChild(timeSpan);
+        if (fired) {
+          const sent = document.createElement("span");
+          sent.className = "alive-schedule-sent";
+          sent.textContent = "sent";
+          li.appendChild(sent);
+        }
+        listEl.appendChild(li);
       });
     }
 
@@ -3083,11 +3197,12 @@
       if (activeTab !== "alive") {
         return;
       }
-      const signature = aliveHistorySignature(payload);
+      const signature = alivePanelSignature(payload);
       if (signature === aliveRenderSignature) {
         return;
       }
       aliveRenderSignature = signature;
+      renderAliveSchedule(payload);
       renderAliveList(payload);
     }
 
@@ -4222,6 +4337,15 @@
       }
       if (aliveList) {
         aliveList.innerHTML = "";
+      }
+      const aliveScheduleCaption = document.getElementById("alive-schedule-caption");
+      const aliveScheduleSlots = document.getElementById("alive-schedule-slots");
+      if (aliveScheduleCaption) {
+        aliveScheduleCaption.textContent =
+          "Today's random slots (local Home Assistant time) appear here once loaded.";
+      }
+      if (aliveScheduleSlots) {
+        aliveScheduleSlots.innerHTML = "";
       }
       webPushLocalSubscribed = false;
       refreshWebPushButtonVisibility();
