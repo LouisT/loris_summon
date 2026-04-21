@@ -4,7 +4,6 @@ DOMAIN = "loris_summon"
 PLATFORMS = ["sensor", "binary_sensor", "button"]
 
 CONF_ALERT_TITLE = "alert_title"
-CONF_ALIVE_CHECKS_PER_DAY = "alive_checks_per_day"
 CONF_API_TOKEN = "api_token"
 CONF_COOLDOWN_SECONDS = "cooldown_seconds"
 CONF_DEBUG_LOGGING = "debug_logging"
@@ -31,7 +30,6 @@ CONF_WEB_PASSWORD = "web_password"
 CONF_WEB_USERNAME = "web_username"
 
 DEFAULT_ALERT_TITLE = "Lori's Summon"
-DEFAULT_ALIVE_CHECKS_PER_DAY = 2
 DEFAULT_COOLDOWN_SECONDS = 30
 DEFAULT_DEBUG_LOGGING = False
 DEFAULT_ENABLE_WEB = False
@@ -50,7 +48,7 @@ DEFAULT_PUSHOVER_SOUND_LOW = ""
 DEFAULT_PUSHOVER_SOUND_LOWEST = ""
 DEFAULT_PUSHOVER_SOUND_NORMAL = ""
 DEFAULT_PUSHOVER_USER_KEY = ""
-DEFAULT_PUSHOVER_EMERGENCY_EXPIRE = 300
+DEFAULT_PUSHOVER_SUMMON_EMERGENCY_EXPIRE = 900
 DEFAULT_PUSHOVER_EMERGENCY_RETRY = 30
 DEFAULT_RATE_LIMIT_WINDOW_SECONDS = 300
 DEFAULT_SUMMON_MESSAGE = "You are summoned. Report immediately."
@@ -67,7 +65,6 @@ ATTR_COOLDOWN_UNTIL = "cooldown_until"
 ATTR_DISPOSITION = "disposition"
 ATTR_EMERGENCY_ACKNOWLEDGED_AFTER_SECONDS = "emergency_acknowledged_after_seconds"
 ATTR_EVENT_ID = "event_id"
-ATTR_EVENT_KIND = "event_kind"
 ATTR_HISTORY = "history"
 ATTR_PUSHOVER_TITLE = "pushover_title"
 ATTR_LAST_TRIGGERED_AT = "last_triggered_at"
@@ -118,34 +115,14 @@ VOICE_NOTE_PLAY_PATH = "/api/loris_summon/voice_note"
 WEB_PATH = "/api/loris_summon/web"
 WEB_LOGIN_PATH = "/api/loris_summon/web/login"
 WEB_REFRESH_PATH = "/api/loris_summon/web/refresh"
-ALIVE_PATH = "/api/loris_summon/alive"
 
 DISPATCH_STATE_UPDATED = "loris_summon_state_updated"
-
-EVENT_KIND_ALIVE = "alive_check"
-ALIVE_CHECK_TITLE = "Alive Check"
-ALIVE_CHECK_MESSAGE = (
-    "Please acknowledge that you are still alive."
-)
-ALIVE_SOURCE_SCHEDULE = "alive_schedule"
-ALIVE_SOURCE_MANUAL = "alive_manual"
-ALIVE_SOURCE_MANUAL_PLANNED = "alive_manual_planned"
-ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN = 500
-ALIVE_MANUAL_SCHEDULE_MAX_PENDING = 20
-ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS = 14
 
 STORE_SUMMON_SCHEDULE = "summon_schedule"
 SUMMON_SOURCE_SCHEDULED = "summon_scheduled"
 SUMMON_SCHEDULE_MAX_MESSAGE_LEN = 2000
 SUMMON_SCHEDULE_MAX_PENDING = 20
 SUMMON_SCHEDULE_MAX_LEAD_DAYS = 14
-ALIVE_SCHEDULE_MIN_PER_DAY = 1
-ALIVE_SCHEDULE_MAX_PER_DAY = 24
-
-STORE_ALIVE_HISTORY = "alive_history"
-STORE_ALIVE_WATCHED_EVENTS = "alive_watched_events"
-STORE_ALIVE_ACTIVE_EVENT_ID = "alive_active_event_id"
-STORE_ALIVE_SCHEDULE = "alive_schedule"
 
 # Legacy JSON-store keys (migrated to on-disk PEM / public key files on load).
 STORE_WEB_PUSH_VAPID_PRIVATE = "web_push_vapid_private_pem"

@@ -6,7 +6,7 @@ import asyncio
 import base64
 import dataclasses
 from collections.abc import Callable
-from datetime import date, datetime, time, timedelta
+from datetime import datetime, time, timedelta
 import html
 import hashlib
 import hmac
@@ -16,7 +16,6 @@ import json
 import logging
 import mimetypes
 import os
-import random
 from pathlib import Path
 import secrets
 from typing import Any
@@ -39,16 +38,6 @@ from homeassistant.helpers.template import Template  # type: ignore
 from homeassistant.util import dt as dt_util  # type: ignore
 
 from .const import (
-    ALIVE_CHECK_MESSAGE,
-    ALIVE_CHECK_TITLE,
-    ALIVE_SCHEDULE_MAX_PER_DAY,
-    ALIVE_SCHEDULE_MIN_PER_DAY,
-    ALIVE_SOURCE_MANUAL,
-    ALIVE_SOURCE_MANUAL_PLANNED,
-    ALIVE_SOURCE_SCHEDULE,
-    ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS,
-    ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN,
-    ALIVE_MANUAL_SCHEDULE_MAX_PENDING,
     ATTACHMENT_FILE_PATH,
     ATTACHMENT_UPLOAD_MAX_BYTES,
     ATTR_ACKNOWLEDGED_AT,
@@ -59,7 +48,6 @@ from .const import (
     ATTR_DISPOSITION,
     ATTR_EMERGENCY_ACKNOWLEDGED_AFTER_SECONDS,
     ATTR_EVENT_ID,
-    ATTR_EVENT_KIND,
     ATTR_HISTORY,
     ATTR_LAST_TRIGGERED_AT,
     ATTR_MESSAGE,
@@ -82,7 +70,6 @@ from .const import (
     ATTR_VOICE_NOTE_BASE_URL,
     ATTR_VOICE_NOTE_PATH,
     CONF_ALERT_TITLE,
-    CONF_ALIVE_CHECKS_PER_DAY,
     CONF_API_TOKEN,
     CONF_COOLDOWN_SECONDS,
     CONF_DEBUG_LOGGING,
@@ -108,7 +95,6 @@ from .const import (
     CONF_WEB_PASSWORD,
     CONF_WEB_USERNAME,
     DEFAULT_ALERT_TITLE,
-    DEFAULT_ALIVE_CHECKS_PER_DAY,
     DEFAULT_COOLDOWN_SECONDS,
     DEFAULT_ENABLE_WEB,
     DEFAULT_HISTORY_SIZE,
@@ -120,8 +106,8 @@ from .const import (
     DEFAULT_MESSAGE_TEMPLATE,
     DEFAULT_PUSHOVER_APP_TOKEN,
     DEFAULT_PUSHOVER_DEVICE,
-    DEFAULT_PUSHOVER_EMERGENCY_EXPIRE,
     DEFAULT_PUSHOVER_EMERGENCY_RETRY,
+    DEFAULT_PUSHOVER_SUMMON_EMERGENCY_EXPIRE,
     DEFAULT_PUSHOVER_SOUND_DEFAULT,
     DEFAULT_PUSHOVER_SOUND_EMERGENCY,
     DEFAULT_PUSHOVER_SOUND_LOW,
@@ -140,7 +126,6 @@ from .const import (
     DEFAULT_WEB_USERNAME,
     DISPATCH_STATE_UPDATED,
     DOMAIN,
-    EVENT_KIND_ALIVE,
     EVENT_ACKNOWLEDGED,
     EVENT_TRIGGERED,
     ICON_PATH,
@@ -153,10 +138,6 @@ from .const import (
     VOICE_NOTE_FILE_PATH,
     VOICE_NOTE_PLAY_PATH,
     WEB_PATH,
-    STORE_ALIVE_ACTIVE_EVENT_ID,
-    STORE_ALIVE_HISTORY,
-    STORE_ALIVE_SCHEDULE,
-    STORE_ALIVE_WATCHED_EVENTS,
     STORE_SUMMON_SCHEDULE,
     STORE_WEB_PUSH_SUBSCRIPTIONS,
     STORE_WEB_PUSH_VAPID_PRIVATE,
@@ -363,11 +344,6 @@ class LorisSummonRuntime:
         self._recent_trigger_times: list[datetime] = []
         self._reminder_task: asyncio.Task[None] | None = None
         self._watched_events: dict[str, dict[str, Any]] = {}
-        self._alive_history: list[dict[str, Any]] = []
-        self._alive_active_event_id: str | None = None
-        self._alive_watched_events: dict[str, dict[str, Any]] = {}
-        self._alive_schedule_unsubs: list[Callable[[], None]] = []
-        self._alive_schedule_blob: dict[str, Any] = {}
         self._summon_schedule_unsubs: list[Callable[[], None]] = []
         self._summon_schedule_blob: dict[str, Any] = {"manual_slots": []}
         self._web_push_vapid_private_pem: str | None = None
@@ -410,59 +386,14 @@ class LorisSummonRuntime:
         if isinstance(last_triggered, str):
             self._last_trigger_at = dt_util.parse_datetime(last_triggered)
 
-        alive_history = stored.get(STORE_ALIVE_HISTORY, [])
-        if isinstance(alive_history, list):
-            self._alive_history = [
-                self._normalize_loaded_alive_item(dict(item))
-                for item in alive_history
-                if isinstance(item, dict)
-            ][: self._history_size()]
-
-        self._alive_active_event_id = stored.get(STORE_ALIVE_ACTIVE_EVENT_ID)
-        if not isinstance(self._alive_active_event_id, str):
-            self._alive_active_event_id = None
-        else:
-            self._alive_active_event_id = self._alive_active_event_id.strip() or None
-
-        alive_watched = stored.get(STORE_ALIVE_WATCHED_EVENTS, [])
-        if isinstance(alive_watched, list):
-            self._alive_watched_events = {}
-            for item in alive_watched:
-                if not isinstance(item, dict):
-                    continue
-                event_id = str(item.get(ATTR_EVENT_ID) or "").strip()
-                if not event_id:
-                    continue
-                normalized_item = self._normalize_loaded_alive_item(dict(item))
-                history_item = next(
-                    (
-                        record
-                        for record in self._alive_history
-                        if str(record.get(ATTR_EVENT_ID) or "") == event_id
-                    ),
-                    None,
-                )
-                self._alive_watched_events[event_id] = (
-                    history_item if history_item is not None else normalized_item
-                )
-
-        schedule_blob = stored.get(STORE_ALIVE_SCHEDULE)
-        if isinstance(schedule_blob, dict):
-            self._alive_schedule_blob = dict(schedule_blob)
-
         summon_sched = stored.get(STORE_SUMMON_SCHEDULE)
         if isinstance(summon_sched, dict):
             self._summon_schedule_blob = dict(summon_sched)
         if not isinstance(self._summon_schedule_blob.get("manual_slots"), list):
             self._summon_schedule_blob["manual_slots"] = []
 
-        subs = stored.get(STORE_WEB_PUSH_SUBSCRIPTIONS, [])
-        if isinstance(subs, list):
-            self._web_push_subscriptions = [
-                dict(s) for s in subs if isinstance(s, dict)
-            ][:WEB_PUSH_MAX_SUBSCRIPTIONS]
-
-        await self._async_init_web_push_vapid(stored)
+        # Web Push feature removed.
+        self._web_push_subscriptions = []
 
         self._debug(
             "restored %s history items with active event %s",
@@ -470,11 +401,9 @@ class LorisSummonRuntime:
             self._active_event_id,
         )
         restored_outstanding = self._restore_outstanding_state()
-        restored_alive = self._restore_alive_outstanding_state()
-        if restored_outstanding or restored_alive:
+        if restored_outstanding:
             await self._async_save_state()
         self._notify_state_changed()
-        self._ensure_alive_schedule()
         self._ensure_summon_schedule()
 
     async def async_trigger(
@@ -658,37 +587,28 @@ class LorisSummonRuntime:
         }
 
     async def async_handle_pushover_callback(self, data: dict[str, Any]) -> dict[str, Any]:
-        # Apply Pushover emergency callback data to summons or alive checks that created the receipt
+        # Apply Pushover emergency callback data to summons that created the receipt
         receipt = str(data.get("receipt", "")).strip()
         if not receipt:
             return {"ok": False, "reason": "missing_receipt"}
 
         event = self._watched_event_by_receipt(receipt)
-        if event is None:
-            event = self._alive_watched_event_by_receipt(receipt)
-        is_alive = self._is_alive_event(event) if event is not None else False
         was_watched = False
         if event is not None:
             event_id = str(event.get(ATTR_EVENT_ID) or "").strip()
-            if is_alive:
-                was_watched = event_id in self._alive_watched_events
-            else:
-                was_watched = event_id in self._watched_events
+            was_watched = event_id in self._watched_events
         if event is None:
             # Accept callbacks for known cleared events so Pushover does not keep retrying them
             event = self._event_by_receipt(receipt)
             if event is None:
-                event = self._alive_event_by_receipt(receipt)
-            if event is None:
                 return {"ok": False, "reason": "unknown_receipt"}
-            is_alive = self._is_alive_event(event)
 
         prev_expired = bool(event.get(ATTR_PUSHOVER_EXPIRED))
         self._apply_pushover_callback_data(event, data)
         if str(data.get("acknowledged", "0")).strip() != "1":
             expired_now = bool(event.get(ATTR_PUSHOVER_EXPIRED)) and not prev_expired
             if expired_now:
-                await self._async_finalize_emergency_expired(event, is_alive=is_alive)
+                await self._async_finalize_emergency_expired(event)
             else:
                 await self._async_commit_state()
             return {"ok": True, "receipt": receipt, "acknowledged": False}
@@ -710,16 +630,11 @@ class LorisSummonRuntime:
         if event.get(ATTR_DISPOSITION) != "cancelled":
             event[ATTR_DISPOSITION] = "acknowledged"
         event_id = str(event.get(ATTR_EVENT_ID) or "")
-        if is_alive:
-            if event_id == str(self._alive_active_event_id or ""):
-                self._alive_active_event_id = None
-            self._alive_watched_events.pop(event_id, None)
-        else:
-            if event_id == str(self._active_event_id or ""):
-                self._active_event_id = None
-                self._cancel_reminder_task()
-            self._watched_events.pop(event_id, None)
-        if was_watched and not is_alive:
+        if event_id == str(self._active_event_id or ""):
+            self._active_event_id = None
+            self._cancel_reminder_task()
+        self._watched_events.pop(event_id, None)
+        if was_watched:
             payload = dict(event)
             payload[ATTR_SOURCE] = "pushover_callback"
             self.hass.bus.async_fire(EVENT_ACKNOWLEDGED, payload)
@@ -765,281 +680,8 @@ class LorisSummonRuntime:
             SUMMARY_ACTIVE_EVENT: self.active_event,
             SUMMARY_MATCHING_EVENT: dict(matching) if matching else None,
             SUMMARY_WATCHED_EVENTS: [dict(item) for item in self._watched_events.values()],
-            "alive_history": [dict(item) for item in self._alive_history],
-            "alive_active_event": self._alive_active_event_record_public(),
-            "alive_watched_events": [
-                dict(item) for item in self._alive_watched_events.values()
-            ],
-            "alive_schedule_per_day": self._alive_checks_per_day(),
-            "alive_schedule_day": str(self._alive_schedule_blob.get("day") or ""),
-            "alive_schedule_slots": self._alive_schedule_slots_for_status(),
             "summon_schedule_slots": self._summon_schedule_slots_for_status(),
-            "web_push": {
-                "subscription_count": len(self._web_push_subscriptions),
-                "max_subscriptions": WEB_PUSH_MAX_SUBSCRIPTIONS,
-            },
         }
-
-    def alive_checks_browser_page(self) -> dict[str, Any]:
-        return {
-            "items": [self._alive_check_browser_item(item) for item in self._alive_history],
-            "alive_schedule_day": str(self._alive_schedule_blob.get("day") or ""),
-            "alive_schedule_slots": self._alive_schedule_slots_for_status(),
-        }
-
-    async def async_send_alive_check(
-        self,
-        source: str,
-        *,
-        message: str | None = None,
-        title: str | None = None,
-    ) -> dict[str, Any]:
-        now = dt_util.utcnow()
-        body = (str(message).strip() if message is not None else "") or ALIVE_CHECK_MESSAGE
-        ttl = (str(title).strip() if title is not None else "") or ALIVE_CHECK_TITLE
-        entry = self._create_history_entry(
-            body,
-            source,
-            PUSHOVER_PRIORITY_EMERGENCY,
-            None,
-            None,
-            None,
-            now,
-        )
-        entry[ATTR_EVENT_KIND] = EVENT_KIND_ALIVE
-        entry[ATTR_PUSHOVER_TITLE] = ttl
-        try:
-            delivery_metadata = await self._send_notification(entry)
-        except Exception as err:
-            _LOGGER.warning("Alive check Pushover delivery failed: %s", err)
-            return {"ok": False, "error": str(err)}
-        entry.update(delivery_metadata)
-        requires_attention = self._event_requires_attention(entry)
-        self._alive_history.insert(0, entry)
-        event_id = str(entry.get(ATTR_EVENT_ID) or "")
-        if requires_attention:
-            self._supersede_previous_alive_active(event_id)
-            entry[ATTR_ACTIVE] = True
-            self._alive_active_event_id = event_id
-            self._alive_watched_events[event_id] = entry
-        else:
-            self._finalize_alive_delivered_event(entry)
-        entry[ATTR_ACTIVE] = bool(entry.get(ATTR_ACTIVE))
-        self._trim_alive_history()
-        await self._async_commit_state()
-        self._notify_state_changed()
-        return {"ok": True, "event_id": event_id}
-
-    async def async_delete_alive_check(self, event_id: str) -> dict[str, Any]:
-        eid = str(event_id or "").strip()
-        if not eid:
-            return {"ok": False, "reason": "missing_event_id"}
-        event = self._alive_event_record(eid)
-        if event is None:
-            return {"ok": False, "reason": "not_found"}
-        if (
-            bool(event.get(ATTR_ACTIVE))
-            or str(self._alive_active_event_id or "") == eid
-            or eid in self._alive_watched_events
-        ):
-            return {"ok": False, "reason": "active_alive_check"}
-        self._alive_history = [
-            item
-            for item in self._alive_history
-            if str(item.get(ATTR_EVENT_ID) or "").strip() != eid
-        ]
-        self._alive_watched_events.pop(eid, None)
-        if str(self._alive_active_event_id or "") == eid:
-            self._alive_active_event_id = None
-        self._delete_attachment_file(event.get(ATTR_ATTACHMENT_PATH))
-        self._delete_attachment_file(event.get(ATTR_VOICE_NOTE_PATH))
-        await self._async_commit_state()
-        self._notify_state_changed()
-        return {"ok": True, "event_id": eid}
-
-    async def async_flush_alive_history(self) -> dict[str, Any]:
-        to_cancel = [
-            dict(e)
-            for e in self._alive_watched_events.values()
-            if self._event_requires_attention(e)
-        ]
-        for event in to_cancel:
-            await self._async_cancel_active_receipt(event)
-        attachment_paths: set[str] = set()
-        voice_note_paths: set[str] = set()
-        for item in self._alive_history:
-            ap = str(item.get(ATTR_ATTACHMENT_PATH) or "").strip()
-            vn = str(item.get(ATTR_VOICE_NOTE_PATH) or "").strip()
-            if ap:
-                attachment_paths.add(ap)
-            if vn:
-                voice_note_paths.add(vn)
-        removed = len(self._alive_history)
-        self._alive_watched_events.clear()
-        self._alive_active_event_id = None
-        self._alive_history = []
-        for path in attachment_paths | voice_note_paths:
-            self._delete_attachment_file(path)
-        await self._async_commit_state()
-        self._notify_state_changed()
-        return {"ok": True, "removed": removed}
-
-    @staticmethod
-    def _alive_seconds_to_ack_value(seconds: Any) -> int | None:
-        try:
-            value = int(seconds)
-        except (TypeError, ValueError):
-            return None
-        return value if value >= 0 else None
-
-    def _alive_check_browser_item(self, event: dict[str, Any]) -> dict[str, Any]:
-        event_id = str(event.get(ATTR_EVENT_ID) or "").strip()
-        ack_at = (
-            str(event.get(ATTR_PUSHOVER_ACKNOWLEDGED_AT) or "").strip()
-            or str(event.get(ATTR_ACKNOWLEDGED_AT) or "").strip()
-        )
-        return {
-            "event_id": event_id,
-            "triggered_at": event.get(ATTR_TRIGGERED_AT),
-            "acknowledged_at": ack_at or None,
-            "seconds_to_ack": self._alive_seconds_to_ack_value(
-                event.get(ATTR_EMERGENCY_ACKNOWLEDGED_AFTER_SECONDS)
-            ),
-            "pending": self._event_requires_attention(event),
-            "source": str(event.get(ATTR_SOURCE) or ""),
-        }
-
-    def _is_alive_event(self, event: dict[str, Any] | None) -> bool:
-        if event is None:
-            return False
-        if str(event.get(ATTR_EVENT_KIND) or "") == EVENT_KIND_ALIVE:
-            return True
-        source = str(event.get(ATTR_SOURCE) or "")
-        return source in {
-            ALIVE_SOURCE_MANUAL,
-            ALIVE_SOURCE_MANUAL_PLANNED,
-            ALIVE_SOURCE_SCHEDULE,
-        } or source.startswith("alive_")
-
-    def _normalize_loaded_alive_item(self, item: dict[str, Any]) -> dict[str, Any]:
-        if self._is_alive_event(item):
-            item.setdefault(ATTR_EVENT_KIND, EVENT_KIND_ALIVE)
-        return item
-
-    def _alive_active_event_record(self) -> dict[str, Any] | None:
-        if not self._alive_active_event_id:
-            return None
-        return next(
-            (
-                item
-                for item in self._alive_history
-                if item.get(ATTR_EVENT_ID) == self._alive_active_event_id
-            ),
-            None,
-        )
-
-    def _alive_active_event_record_public(self) -> dict[str, Any] | None:
-        active = self._alive_active_event_record()
-        return dict(active) if active else None
-
-    def _alive_watched_event_by_receipt(self, receipt: str) -> dict[str, Any] | None:
-        watched_receipt = str(receipt or "").strip()
-        if not watched_receipt:
-            return None
-        return next(
-            (
-                item
-                for item in self._alive_watched_events.values()
-                if str(item.get(ATTR_PUSHOVER_RECEIPT) or "") == watched_receipt
-            ),
-            None,
-        )
-
-    def _alive_event_by_receipt(self, receipt: str) -> dict[str, Any] | None:
-        watched_receipt = str(receipt or "").strip()
-        if not watched_receipt:
-            return None
-        return next(
-            (
-                item
-                for item in self._alive_history
-                if str(item.get(ATTR_PUSHOVER_RECEIPT) or "") == watched_receipt
-            ),
-            None,
-        )
-
-    def _alive_event_record(self, event_id: str) -> dict[str, Any] | None:
-        eid = str(event_id or "").strip()
-        if not eid:
-            return None
-        for item in self._alive_history:
-            if str(item.get(ATTR_EVENT_ID) or "").strip() == eid:
-                return item
-        return None
-
-    def _supersede_previous_alive_active(self, new_event_id: str) -> None:
-        active = self._alive_active_event_record()
-        if active is None or str(active.get(ATTR_EVENT_ID) or "") == new_event_id:
-            return
-        active[ATTR_ACTIVE] = False
-        active[ATTR_NEXT_REMINDER_AT] = None
-        if active.get(ATTR_DISPOSITION) == "triggered":
-            active[ATTR_DISPOSITION] = "superseded"
-
-    def _finalize_alive_delivered_event(self, event: dict[str, Any]) -> bool:
-        return self._finalize_delivered_event(event)
-
-    def _trim_alive_history(self) -> None:
-        max_items = self._history_size()
-        watched_ids = set(self._alive_watched_events)
-        kept: list[dict[str, Any]] = []
-        non_watched_kept = 0
-        for item in self._alive_history:
-            event_id = str(item.get(ATTR_EVENT_ID) or "")
-            if event_id in watched_ids:
-                kept.append(item)
-                continue
-            if non_watched_kept < max_items:
-                kept.append(item)
-                non_watched_kept += 1
-        self._alive_history = kept
-
-    def _restore_alive_outstanding_state(self) -> bool:
-        state_changed = False
-        watched_events: dict[str, dict[str, Any]] = {}
-        for event_id, event in self._alive_watched_events.items():
-            if self._event_requires_attention(event):
-                watched_events[event_id] = event
-                continue
-            state_changed = self._finalize_alive_delivered_event(event) or state_changed
-        if watched_events != self._alive_watched_events:
-            self._alive_watched_events = watched_events
-            state_changed = True
-        active = self._alive_active_event_record()
-        if active is None:
-            if self._alive_active_event_id is not None:
-                self._alive_active_event_id = None
-                state_changed = True
-            return state_changed
-        if self._event_requires_attention(active):
-            event_id = str(active.get(ATTR_EVENT_ID) or "").strip()
-            if event_id and event_id not in self._alive_watched_events:
-                self._alive_watched_events[event_id] = active
-                state_changed = True
-            return state_changed
-        state_changed = self._finalize_alive_delivered_event(active) or state_changed
-        if self._alive_active_event_id is not None:
-            self._alive_active_event_id = None
-            state_changed = True
-        return state_changed
-
-    def _cancel_alive_schedule_handles(self) -> None:
-        for unsub in self._alive_schedule_unsubs:
-            try:
-                unsub()
-            except Exception:  # noqa: BLE001
-                pass
-        self._alive_schedule_unsubs.clear()
 
     def _cancel_summon_schedule_handles(self) -> None:
         for unsub in self._summon_schedule_unsubs:
@@ -1051,460 +693,6 @@ class LorisSummonRuntime:
 
     def _time_zone(self):
         return dt_util.get_time_zone(self.hass.config.time_zone) or dt_util.UTC
-
-    def _alive_schedule_target_local_date(self) -> datetime:
-        tz = self._time_zone()
-        now_local = dt_util.now(tz)
-        end_window = datetime.combine(now_local.date(), time(22, 30), tzinfo=tz)
-        if now_local > end_window:
-            return datetime.combine(
-                now_local.date() + timedelta(days=1), time(0, 0), tzinfo=tz
-            )
-        return datetime.combine(now_local.date(), time(0, 0), tzinfo=tz)
-
-    def _alive_schedule_day_key(self, day_anchor: datetime) -> str:
-        return day_anchor.date().isoformat()
-
-    def _alive_manual_slot_list(self) -> list[dict[str, Any]]:
-        raw = self._alive_schedule_blob.get("manual_slots")
-        if not isinstance(raw, list):
-            self._alive_schedule_blob["manual_slots"] = []
-            raw = self._alive_schedule_blob["manual_slots"]
-        cleaned = [x for x in raw if isinstance(x, dict)]
-        if len(cleaned) != len(raw):
-            self._alive_schedule_blob["manual_slots"] = cleaned
-        return self._alive_schedule_blob["manual_slots"]  # type: ignore[return-value]
-
-    def _alive_schedule_slots_for_status(self) -> list[dict[str, Any]]:
-        """Return scheduled alive times for the browser (Home Assistant local time)."""
-        slots_raw = self._alive_schedule_blob.get("slots")
-        if not isinstance(slots_raw, list):
-            slots_raw = []
-        tz = self._time_zone()
-        out: list[dict[str, Any]] = []
-        for slot in slots_raw:
-            if not isinstance(slot, dict):
-                continue
-            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
-            if when is None:
-                continue
-            if when.tzinfo is None:
-                when = when.replace(tzinfo=dt_util.UTC)
-            local_when = when.astimezone(tz)
-            hour12 = local_when.strftime("%I").lstrip("0") or "12"
-            minute = local_when.strftime("%M")
-            ampm = local_when.strftime("%p").lower()
-            local_label = f"{hour12}:{minute} {ampm}"
-            out.append(
-                {
-                    "at": when.isoformat(),
-                    "fired": bool(slot.get("fired")),
-                    "local_time": local_label,
-                    "manual": False,
-                    "slot_id": "",
-                    "message": "",
-                }
-            )
-        for slot in self._alive_manual_slot_list():
-            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
-            if when is None:
-                continue
-            if when.tzinfo is None:
-                when = when.replace(tzinfo=dt_util.UTC)
-            local_when = when.astimezone(tz)
-            hour12 = local_when.strftime("%I").lstrip("0") or "12"
-            minute = local_when.strftime("%M")
-            ampm = local_when.strftime("%p").lower()
-            local_label = f"{hour12}:{minute} {ampm}"
-            out.append(
-                {
-                    "at": when.isoformat(),
-                    "fired": bool(slot.get("fired")),
-                    "local_time": local_label,
-                    "manual": True,
-                    "slot_id": str(slot.get("id") or "").strip(),
-                    "message": str(slot.get("message") or "").strip(),
-                }
-            )
-        out.sort(key=lambda x: x["at"])
-        return out
-
-    def _alive_spread_utc_between(self, start_utc: datetime, end_utc: datetime, count: int) -> list[datetime]:
-        """Spread ``count`` UTC instants between ``start_utc`` and ``end_utc`` (see local-window helper)."""
-        a = dt_util.as_utc(start_utc)
-        b = dt_util.as_utc(end_utc)
-        span_sec = max(0, int((b - a).total_seconds()))
-        if count <= 0:
-            return []
-        if span_sec <= 0:
-            return [a] * count
-        if count == 1:
-            return [a + timedelta(seconds=random.randint(0, span_sec))]
-        times: list[datetime] = []
-        for i in range(1, count + 1):
-            frac = i / (count + 1)
-            center_sec = span_sec * frac
-            half_slot = span_sec / (2 * (count + 1))
-            jitter = random.uniform(-half_slot, half_slot)
-            sec = int(round(center_sec + jitter))
-            sec = max(0, min(span_sec, sec))
-            times.append(a + timedelta(seconds=sec))
-        times.sort()
-        return times
-
-    def _alive_spread_utc_times_in_local_window(
-        self,
-        target_date: date,
-        win_start: time,
-        win_end: time,
-        tz,
-        count: int,
-    ) -> list[datetime]:
-        """Place `count` UTC instants across the local window with spacing from the window span.
-
-        The window [win_start, win_end] is split into ``count + 1`` equal parts; each scheduled
-        time is picked near the center of one part (with jitter bounded by half a part), so
-        minimum separation scales with ``count`` and the chosen day window.
-        """
-        start_local = datetime.combine(target_date, win_start, tzinfo=tz)
-        end_local = datetime.combine(target_date, win_end, tzinfo=tz)
-        return self._alive_spread_utc_between(
-            dt_util.as_utc(start_local),
-            dt_util.as_utc(end_local),
-            count,
-        )
-
-    def _build_new_alive_schedule(self, day_anchor: datetime, tz) -> dict[str, Any]:
-        target_date = day_anchor.date()
-        per_day = self._alive_checks_per_day()
-        day_start = time(8, 30)
-        day_end = time(22, 30)
-        fire_times = (
-            self._alive_spread_utc_times_in_local_window(
-                target_date, day_start, day_end, tz, per_day
-            )
-            if per_day > 0
-            else []
-        )
-        slots = [{"at": t.isoformat(), "fired": False} for t in fire_times]
-        return {
-            "day": target_date.isoformat(),
-            "slots": slots,
-            "scheduled_per_day": per_day,
-            "manual_slots": [],
-        }
-
-    def _alive_regenerated_schedule_blob(self) -> tuple[dict[str, Any] | None, str | None]:
-        """Build a fresh schedule blob for the current schedule day, starting after a short lead time.
-
-        Returns ``(blob, None)`` on success, or ``(None, reason)`` when no window remains
-        (e.g. too late in the 10:30 p.m. local cutoff).
-        """
-        tz = self._time_zone()
-        day_anchor = self._alive_schedule_target_local_date()
-        target_date = day_anchor.date()
-        per_day = self._alive_checks_per_day()
-        day_key = target_date.isoformat()
-        if per_day <= 0:
-            return (
-                {
-                    "day": day_key,
-                    "slots": [],
-                    "scheduled_per_day": 0,
-                    "manual_slots": [],
-                },
-                None,
-            )
-        day_start_local = datetime.combine(target_date, time(8, 30), tzinfo=tz)
-        day_end_local = datetime.combine(target_date, time(22, 30), tzinfo=tz)
-        now_local = dt_util.now(tz)
-        start_floor = max(day_start_local, now_local + timedelta(seconds=90))
-        start_utc = dt_util.as_utc(start_floor)
-        end_utc = dt_util.as_utc(day_end_local)
-        if start_utc >= end_utc:
-            return None, "day_window_closed"
-        fire_times = self._alive_spread_utc_between(start_utc, end_utc, per_day)
-        return (
-            {
-                "day": day_key,
-                "slots": [{"at": t.isoformat(), "fired": False} for t in fire_times],
-                "scheduled_per_day": per_day,
-                "manual_slots": [],
-            },
-            None,
-        )
-
-    async def async_reset_alive_schedule(self) -> dict[str, Any]:
-        """Redraw today's scheduled alive check times (same count; does not send a check)."""
-        if not self.hass.is_running:
-            return {
-                "ok": False,
-                "reason": "not_running",
-                "message_text": "Home Assistant is not running.",
-            }
-        blob, err = self._alive_regenerated_schedule_blob()
-        if err == "day_window_closed":
-            return {
-                "ok": False,
-                "reason": err,
-                "message_text": (
-                    "Too late in the day to redraw times (after 10:30 p.m. local cutoff)."
-                ),
-            }
-        if blob is None:
-            return {
-                "ok": False,
-                "reason": "unknown",
-                "message_text": "Could not redraw scheduled times.",
-            }
-        preserved_manual = [
-            dict(m)
-            for m in self._alive_manual_slot_list()
-            if not m.get("fired")
-        ]
-        self._cancel_alive_schedule_handles()
-        self._alive_schedule_blob = blob
-        if preserved_manual:
-            self._alive_schedule_blob["manual_slots"] = preserved_manual
-        await self._async_commit_state()
-        self._notify_state_changed()
-        self._ensure_alive_schedule()
-        return {
-            "ok": True,
-            "message_text": "Scheduled alive check times were redrawn.",
-        }
-
-    async def async_add_manual_alive_schedule(
-        self, when_raw: str, message_raw: str
-    ) -> dict[str, Any]:
-        """Queue a one-off alive check at ``when_raw`` (ISO UTC) with a custom Pushover message."""
-        if not self.hass.is_running:
-            return {
-                "ok": False,
-                "reason": "not_running",
-                "message_text": "Home Assistant is not running.",
-            }
-        when = dt_util.parse_datetime(str(when_raw or "").strip())
-        if when is None:
-            return {
-                "ok": False,
-                "reason": "bad_time",
-                "message_text": "Could not parse the scheduled time.",
-            }
-        if when.tzinfo is None:
-            when = when.replace(tzinfo=dt_util.UTC)
-        when = dt_util.as_utc(when)
-        message = str(message_raw or "").strip()
-        if not message:
-            return {
-                "ok": False,
-                "reason": "empty_message",
-                "message_text": "Enter a notification message.",
-            }
-        if len(message) > ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN:
-            return {
-                "ok": False,
-                "reason": "message_too_long",
-                "message_text": (
-                    f"Message is too long (max {ALIVE_MANUAL_SCHEDULE_MAX_MESSAGE_LEN} characters)."
-                ),
-            }
-        pending = len(
-            [m for m in self._alive_manual_slot_list() if not m.get("fired")]
-        )
-        if pending >= ALIVE_MANUAL_SCHEDULE_MAX_PENDING:
-            return {
-                "ok": False,
-                "reason": "too_many_pending",
-                "message_text": (
-                    f"Too many pending custom times (max {ALIVE_MANUAL_SCHEDULE_MAX_PENDING})."
-                ),
-            }
-        now = dt_util.utcnow()
-        if when <= now + timedelta(seconds=20):
-            return {
-                "ok": False,
-                "reason": "time_in_past",
-                "message_text": "Pick a time at least a minute from now.",
-            }
-        latest = now + timedelta(days=ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS)
-        if when > latest:
-            return {
-                "ok": False,
-                "reason": "time_too_far",
-                "message_text": (
-                    f"Pick a time within the next {ALIVE_MANUAL_SCHEDULE_MAX_LEAD_DAYS} days."
-                ),
-            }
-        slot_id = uuid4().hex
-        self._alive_manual_slot_list().append(
-            {
-                "id": slot_id,
-                "at": when.isoformat(),
-                "message": message,
-                "fired": False,
-            }
-        )
-        await self._async_commit_state()
-        self._notify_state_changed()
-        self._ensure_alive_schedule()
-        return {
-            "ok": True,
-            "slot_id": slot_id,
-            "message_text": "Custom alive check scheduled.",
-        }
-
-    async def async_remove_manual_alive_schedule(self, slot_id: str) -> dict[str, Any]:
-        """Remove a pending custom scheduled alive check by id."""
-        sid = str(slot_id or "").strip()
-        if not sid:
-            return {
-                "ok": False,
-                "reason": "missing_slot_id",
-                "message_text": "Missing schedule id.",
-            }
-        manual = self._alive_manual_slot_list()
-        kept: list[dict[str, Any]] = []
-        removed = False
-        for m in manual:
-            if str(m.get("id") or "").strip() == sid and not m.get("fired"):
-                removed = True
-                continue
-            kept.append(m)
-        if not removed:
-            return {
-                "ok": False,
-                "reason": "not_found",
-                "message_text": "That scheduled check was not found or already sent.",
-            }
-        self._alive_schedule_blob["manual_slots"] = kept
-        await self._async_commit_state()
-        self._notify_state_changed()
-        self._ensure_alive_schedule()
-        return {"ok": True, "message_text": "Scheduled check removed."}
-
-    def _ensure_alive_schedule(self) -> None:
-        if not self.hass.is_running:
-            return
-        self._cancel_alive_schedule_handles()
-        tz = self._time_zone()
-        day_anchor = self._alive_schedule_target_local_date()
-        day_key = self._alive_schedule_day_key(day_anchor)
-        want = self._alive_checks_per_day()
-        if not isinstance(self._alive_schedule_blob.get("manual_slots"), list):
-            self._alive_schedule_blob["manual_slots"] = []
-        slots = self._alive_schedule_blob.get("slots")
-        stored_per = self._alive_schedule_blob.get("scheduled_per_day")
-        if stored_per is None and isinstance(slots, list):
-            stored_per = len(slots)
-        if (
-            self._alive_schedule_blob.get("day") != day_key
-            or not isinstance(slots, list)
-            or len(slots) != want
-            or stored_per != want
-        ):
-            preserved_manual = [
-                dict(m)
-                for m in self._alive_manual_slot_list()
-                if not m.get("fired")
-            ]
-            self._alive_schedule_blob = self._build_new_alive_schedule(day_anchor, tz)
-            if preserved_manual:
-                self._alive_schedule_blob["manual_slots"] = preserved_manual
-            self.hass.async_create_task(self._async_commit_state())
-        slots_list = self._alive_schedule_blob.get("slots")
-        if not isinstance(slots_list, list):
-            slots_list = []
-        now_utc = dt_util.utcnow()
-        overdue_seq = 0
-
-        def _arm_alive_trigger(trigger_at: datetime, slot_index: int, kind: str) -> None:
-            async def _fire_scheduled_alive(
-                _now: datetime, idx: int = slot_index, k: str = kind
-            ) -> None:
-                if k == "manual":
-                    await self._async_fire_manual_alive_schedule_slot(idx)
-                else:
-                    await self._async_fire_alive_schedule_slot(idx)
-
-            unsub = async_track_point_in_time(
-                self.hass, _fire_scheduled_alive, trigger_at
-            )
-            self._alive_schedule_unsubs.append(unsub)
-
-        for index, slot in enumerate(slots_list):
-            if not isinstance(slot, dict) or slot.get("fired"):
-                continue
-            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
-            if when is None:
-                continue
-            if when.tzinfo is None:
-                when = when.replace(tzinfo=dt_util.UTC)
-            when = dt_util.as_utc(when)
-            if when > now_utc:
-                trigger_at = when
-            else:
-                overdue_seq += 1
-                trigger_at = now_utc + timedelta(seconds=2 + overdue_seq * 3)
-                _LOGGER.debug(
-                    "Alive schedule slot %s was due at %s UTC; catch-up fire scheduled for %s UTC",
-                    index,
-                    when.isoformat(),
-                    trigger_at.isoformat(),
-                )
-            _arm_alive_trigger(trigger_at, index, "random")
-
-        for index, slot in enumerate(self._alive_manual_slot_list()):
-            if not isinstance(slot, dict) or slot.get("fired"):
-                continue
-            when = dt_util.parse_datetime(str(slot.get("at") or "").strip())
-            if when is None:
-                continue
-            if when.tzinfo is None:
-                when = when.replace(tzinfo=dt_util.UTC)
-            when = dt_util.as_utc(when)
-            if when > now_utc:
-                trigger_at = when
-            else:
-                overdue_seq += 1
-                trigger_at = now_utc + timedelta(seconds=2 + overdue_seq * 3)
-                _LOGGER.debug(
-                    "Alive manual slot %s was due at %s UTC; catch-up fire scheduled for %s UTC",
-                    index,
-                    when.isoformat(),
-                    trigger_at.isoformat(),
-                )
-            _arm_alive_trigger(trigger_at, index, "manual")
-
-    async def _async_fire_manual_alive_schedule_slot(self, slot_index: int) -> None:
-        manual_list = self._alive_manual_slot_list()
-        if slot_index < 0 or slot_index >= len(manual_list):
-            return
-        slot = manual_list[slot_index]
-        if not isinstance(slot, dict) or slot.get("fired"):
-            return
-        body = str(slot.get("message") or "").strip() or ALIVE_CHECK_MESSAGE
-        result = await self.async_send_alive_check(
-            ALIVE_SOURCE_MANUAL_PLANNED,
-            message=body,
-        )
-        if result.get("ok"):
-            slot["fired"] = True
-            await self._async_commit_state()
-        self._ensure_alive_schedule()
-
-    async def _async_fire_alive_schedule_slot(self, slot_index: int) -> None:
-        slots_raw = self._alive_schedule_blob.get("slots")
-        if not isinstance(slots_raw, list) or slot_index < 0 or slot_index >= len(slots_raw):
-            return
-        slot = slots_raw[slot_index]
-        if not isinstance(slot, dict) or slot.get("fired"):
-            return
-        result = await self.async_send_alive_check(ALIVE_SOURCE_SCHEDULE)
-        if result.get("ok"):
-            slot["fired"] = True
-            await self._async_commit_state()
-        self._ensure_alive_schedule()
 
     def _summon_manual_slot_list(self) -> list[dict[str, Any]]:
         raw = self._summon_schedule_blob.get("manual_slots")
@@ -1758,99 +946,24 @@ class LorisSummonRuntime:
         self._ensure_summon_schedule()
         return {"ok": True, "message_text": "Scheduled summon removed."}
 
-    async def _async_finalize_emergency_expired(
-        self,
-        event: dict[str, Any],
-        *,
-        is_alive: bool,
-    ) -> None:
+    async def _async_finalize_emergency_expired(self, event: dict[str, Any]) -> None:
         # Pushover ended the emergency retry window without an acknowledgment
         event[ATTR_ACTIVE] = False
         event[ATTR_NEXT_REMINDER_AT] = None
         if str(event.get(ATTR_DISPOSITION) or "").strip() == "triggered":
             event[ATTR_DISPOSITION] = "expired"
         event_id = str(event.get(ATTR_EVENT_ID) or "")
-        if is_alive:
-            if event_id == str(self._alive_active_event_id or ""):
-                self._alive_active_event_id = None
-            self._alive_watched_events.pop(event_id, None)
-        else:
-            if event_id == str(self._active_event_id or ""):
-                self._active_event_id = None
-                self._cancel_reminder_task()
-            self._watched_events.pop(event_id, None)
-        await self._async_send_web_push_missing_ack(event, is_alive=is_alive)
+        if event_id == str(self._active_event_id or ""):
+            self._active_event_id = None
+            self._cancel_reminder_task()
+        self._watched_events.pop(event_id, None)
+        await self._async_send_web_push_missing_ack(event)
         await self._async_commit_state()
         self._notify_state_changed()
 
-    async def _async_send_web_push_missing_ack(
-        self,
-        event: dict[str, Any],
-        *,
-        is_alive: bool,
-    ) -> None:
-        try:
-            import pywebpush  # noqa: F401
-        except ImportError:
-            self._debug("pywebpush is not installed; skipping web push")
-            return
-        if not self._web_push_subscriptions:
-            return
-        if not self._web_push_vapid_private_pem:
-            if not await self.async_ensure_web_push_vapid_keys():
-                return
-        private_pem = self._web_push_vapid_private_pem
-        if not private_pem:
-            return
-        event_id = str(event.get(ATTR_EVENT_ID) or "").strip()
-        title = (
-            "Alive check not acknowledged"
-            if is_alive
-            else "Emergency summon not acknowledged"
-        )
-        if is_alive:
-            body = (
-                "The Pushover emergency window ended with no acknowledgment for an Alive Check."
-            )
-        else:
-            msg_preview = str(event.get(ATTR_MESSAGE) or "").strip().replace("\n", " ")
-            if len(msg_preview) > 120:
-                msg_preview = f"{msg_preview[:117]}..."
-            body = (
-                "The Pushover emergency window ended with no acknowledgment."
-                + (f' Summon: "{msg_preview}"' if msg_preview else "")
-            )
-        payload = json.dumps(
-            {
-                "title": title,
-                "body": body,
-                "path": f"{WEB_PATH}#{'alive' if is_alive else 'sent-summons'}",
-                "tag": f"loris-{event_id}-{'alive' if is_alive else 'summon'}",
-                "icon": ICON_PATH,
-            },
-            separators=(",", ":"),
-        )
-        dead_endpoints: set[str] = set()
-        for sub in list(self._web_push_subscriptions):
-            endpoint = str(sub.get("endpoint") or "").strip()
-            if not endpoint:
-                continue
-            result = await self.hass.async_add_executor_job(
-                _web_push_send_sync,
-                sub,
-                payload,
-                private_pem,
-                WEB_PUSH_VAPID_SUB,
-            )
-            if result == "gone":
-                dead_endpoints.add(endpoint)
-        if dead_endpoints:
-            self._web_push_subscriptions = [
-                s
-                for s in self._web_push_subscriptions
-                if str(s.get("endpoint") or "").strip() not in dead_endpoints
-            ]
-            await self._async_save_state()
+    async def _async_send_web_push_missing_ack(self, _event: dict[str, Any]) -> None:
+        # Web Push feature removed.
+        return
 
     async def async_ensure_web_push_vapid_keys(self) -> bool:
         if self._web_push_vapid_private_pem and self._web_push_vapid_public_b64u:
@@ -2183,7 +1296,6 @@ class LorisSummonRuntime:
 
     async def async_shutdown(self) -> None:
         # Cancel background reminders so unloads do not leave orphaned tasks behind
-        self._cancel_alive_schedule_handles()
         self._cancel_summon_schedule_handles()
         task = self._reminder_task
         self._reminder_task = None
@@ -2511,16 +1623,7 @@ class LorisSummonRuntime:
                 ATTR_LAST_TRIGGERED_AT: (
                     self._last_trigger_at.isoformat() if self._last_trigger_at else None
                 ),
-                STORE_ALIVE_HISTORY: self._alive_history[: self._history_size()],
-                STORE_ALIVE_ACTIVE_EVENT_ID: self._alive_active_event_id,
-                STORE_ALIVE_WATCHED_EVENTS: [
-                    dict(item) for item in self._alive_watched_events.values()
-                ],
-                STORE_ALIVE_SCHEDULE: dict(self._alive_schedule_blob),
                 STORE_SUMMON_SCHEDULE: dict(self._summon_schedule_blob),
-                STORE_WEB_PUSH_SUBSCRIPTIONS: [
-                    dict(s) for s in self._web_push_subscriptions
-                ],
             }
         )
 
@@ -2636,7 +1739,7 @@ class LorisSummonRuntime:
             form.add_field("sound", pushover_sound)
         if priority_label == PUSHOVER_PRIORITY_EMERGENCY:
             form.add_field("retry", str(DEFAULT_PUSHOVER_EMERGENCY_RETRY))
-            form.add_field("expire", str(DEFAULT_PUSHOVER_EMERGENCY_EXPIRE))
+            form.add_field("expire", str(self._emergency_expire_seconds(payload)))
             callback_url = self._pushover_callback_url()
             if callback_url:
                 form.add_field("callback", callback_url)
@@ -2645,6 +1748,9 @@ class LorisSummonRuntime:
                     "Lori's Summon could not determine a public Home Assistant URL for the Pushover callback"
                 )
         return form
+
+    def _emergency_expire_seconds(self, _payload: dict[str, Any]) -> int:
+        return DEFAULT_PUSHOVER_SUMMON_EMERGENCY_EXPIRE
 
     def _pushover_delivery_metadata(
         self,
@@ -2656,6 +1762,7 @@ class LorisSummonRuntime:
         if priority_label != PUSHOVER_PRIORITY_EMERGENCY:
             return {}
         receipt = str(response_data.get("receipt", "")).strip()
+        expire_seconds = self._emergency_expire_seconds(payload)
         metadata: dict[str, Any] = {
             ATTR_PUSHOVER_ACKNOWLEDGED: False,
             ATTR_PUSHOVER_ACKNOWLEDGED_AT: None,
@@ -2664,7 +1771,7 @@ class LorisSummonRuntime:
             ATTR_PUSHOVER_EXPIRED: False,
             ATTR_PUSHOVER_EXPIRES_AT: _unix_timestamp_to_iso(
                 dt_util.parse_datetime(str(payload.get(ATTR_TRIGGERED_AT) or "")).timestamp()
-                + DEFAULT_PUSHOVER_EMERGENCY_EXPIRE
+                + expire_seconds
                 if dt_util.parse_datetime(str(payload.get(ATTR_TRIGGERED_AT) or "")) is not None
                 else None
             ),
@@ -2995,14 +2102,6 @@ class LorisSummonRuntime:
 
     def _history_size(self) -> int:
         return int(self._value(CONF_HISTORY_SIZE) or DEFAULT_HISTORY_SIZE)
-
-    def _alive_checks_per_day(self) -> int:
-        raw = self._value(CONF_ALIVE_CHECKS_PER_DAY)
-        try:
-            n = int(raw)
-        except (TypeError, ValueError):
-            n = DEFAULT_ALIVE_CHECKS_PER_DAY
-        return max(ALIVE_SCHEDULE_MIN_PER_DAY, min(n, ALIVE_SCHEDULE_MAX_PER_DAY))
 
     def _preview_trigger(
         self,

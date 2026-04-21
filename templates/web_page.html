@@ -606,46 +606,6 @@
       min-width: 0;
     }
 
-    .web-push-bar {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin: -4px 0 18px;
-      padding: 12px 14px;
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      background: rgba(0, 0, 0, 0.22);
-    }
-
-    .web-push-copy strong {
-      margin-bottom: 4px;
-      font-size: 0.92rem;
-    }
-
-    .web-push-desc {
-      display: block;
-      font-size: 0.86rem;
-      color: var(--muted);
-      line-height: 1.45;
-      max-width: 52ch;
-    }
-
-    .web-push-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .web-push-status {
-      margin: 0;
-      font-size: 0.82rem;
-      color: var(--muted);
-      flex: 1 1 140px;
-      min-width: 120px;
-    }
 
     .tab-button {
       flex: 1 1 0;
@@ -693,166 +653,6 @@
       min-width: 0;
     }
 
-    .alive-shell {
-      margin-top: 0.5rem;
-    }
-
-    .alive-toolbar {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      margin-bottom: 1rem;
-    }
-
-    .alive-settings-button {
-      flex-shrink: 0;
-      width: 44px;
-      height: 44px;
-      padding: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      background: rgba(0, 0, 0, 0.25);
-      color: rgba(255, 255, 255, 0.85);
-      cursor: pointer;
-    }
-
-    .alive-settings-button:hover {
-      border-color: rgba(var(--accent-rgb), 0.45);
-      color: #fff;
-    }
-
-    .alive-toolbar-actions {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.65rem 1rem;
-    }
-
-    .alive-schedule {
-      margin-bottom: 1rem;
-      padding: 0.75rem 0.9rem;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(0, 0, 0, 0.18);
-    }
-
-    .alive-schedule-title {
-      margin: 0 0 0.35rem;
-      font-size: 0.92rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.9);
-    }
-
-    .alive-schedule-caption {
-      margin: 0 0 0.65rem;
-      font-size: 0.82rem;
-      line-height: 1.35;
-      color: rgba(255, 255, 255, 0.62);
-    }
-
-    .alive-schedule-actions {
-      margin: 0 0 0.65rem;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 0.5rem 0.75rem;
-    }
-
-    .alive-schedule-manual {
-      margin: 0 0 0.85rem;
-      padding: 0.65rem 0.75rem;
-      border-radius: 10px;
-      border: 1px solid rgba(255, 255, 255, 0.07);
-      background: rgba(0, 0, 0, 0.12);
-    }
-
-    .alive-schedule-subtitle {
-      margin: 0 0 0.4rem;
-      font-size: 0.82rem;
-      font-weight: 600;
-      color: rgba(255, 255, 255, 0.88);
-    }
-
-    .alive-schedule-manual-hint {
-      margin: 0 0 0.55rem;
-      font-size: 0.75rem;
-      line-height: 1.35;
-      color: rgba(255, 255, 255, 0.52);
-    }
-
-    .alive-schedule-manual-when {
-      display: block;
-      width: 100%;
-      max-width: 22rem;
-      margin-bottom: 0.45rem;
-    }
-
-    .alive-schedule-manual-message {
-      display: block;
-      width: 100%;
-      max-width: 28rem;
-      min-height: 4.5rem;
-      margin-bottom: 0.45rem;
-      resize: vertical;
-    }
-
-    .alive-schedule-manual-actions {
-      margin-top: 0.35rem;
-    }
-
-    .alive-schedule-slots {
-      margin: 0;
-      padding-left: 1.15rem;
-      color: rgba(255, 255, 255, 0.84);
-      font-size: 0.88rem;
-    }
-
-    .alive-schedule-slots li {
-      margin: 0.22rem 0;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      gap: 0.25rem 0.5rem;
-    }
-
-    .alive-schedule-slots li.alive-schedule-slot--manual {
-      border-left: 2px solid rgba(var(--accent-rgb), 0.45);
-      padding-left: 0.45rem;
-      margin-left: -0.45rem;
-    }
-
-    .alive-schedule-msg {
-      font-size: 0.78rem;
-      color: rgba(255, 255, 255, 0.55);
-      flex: 1 1 12rem;
-      min-width: 0;
-    }
-
-    .alive-schedule-unschedule {
-      font-size: 0.72rem;
-      padding: 0.15rem 0.45rem;
-      min-height: 0;
-      border-radius: 8px;
-    }
-
-    .alive-schedule-slots li .alive-schedule-time.alive-schedule-time--past {
-      text-decoration: line-through;
-      text-decoration-thickness: 1px;
-      text-underline-offset: 0.12em;
-    }
-
-    .alive-schedule-slots li.alive-schedule-fired {
-      color: rgba(255, 255, 255, 0.48);
-    }
-
-    .alive-schedule-slots li.alive-schedule-fired .alive-schedule-sent {
-      margin-left: 0.35rem;
-      font-size: 0.78rem;
-      color: rgba(255, 255, 255, 0.42);
-    }
 
     .summon-when-hint {
       margin: 0.35rem 0 0;
@@ -951,240 +751,6 @@
 
     .modal-body {
       padding: 14px 16px 18px;
-    }
-
-    .web-push-bar--modal {
-      margin: 0;
-      padding: 0;
-      border: 0;
-      background: transparent;
-    }
-
-    .web-push-bar--modal .web-push-desc {
-      max-width: none;
-    }
-
-    .alive-modal-section {
-      margin-top: 1.1rem;
-      padding-top: 1rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
-    }
-
-    .alive-modal-section-title {
-      margin: 0 0 0.35rem;
-      font-size: 0.95rem;
-      font-weight: 600;
-    }
-
-    .alive-modal-section-desc {
-      margin: 0 0 0.65rem;
-      font-size: 0.82rem;
-      color: var(--muted);
-      line-height: 1.45;
-    }
-
-    .alive-intro {
-      margin: 0;
-      font-size: 0.92rem;
-      line-height: 1.45;
-      color: var(--muted);
-    }
-
-    .alive-toolbar-status {
-      margin: 0;
-      min-height: 1.25rem;
-      font-size: 0.88rem;
-      color: var(--muted);
-    }
-
-    .alive-list-wrap {
-      border-radius: 12px;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      background: rgba(0, 0, 0, 0.18);
-      padding: 0.75rem 1rem;
-    }
-
-    .alive-list-status {
-      margin: 0 0 0.5rem;
-      font-size: 0.88rem;
-      color: var(--muted);
-    }
-
-    .alive-list {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      flex-direction: column;
-      gap: 0.65rem;
-    }
-
-    .alive-row {
-      --alive-row-bg: transparent;
-      --alive-row-border: rgba(255, 255, 255, 0.08);
-      --alive-row-label: var(--muted);
-      --alive-row-sublabel: rgba(255, 255, 255, 0.55);
-      display: grid;
-      grid-template-columns: 1fr 1fr 1fr auto;
-      gap: 0.35rem 0.75rem;
-      align-items: baseline;
-      padding: 0.65rem 0.75rem;
-      border-radius: 10px;
-      border: 1px solid var(--alive-row-border);
-      background: var(--alive-row-bg);
-      font-size: 0.9rem;
-      transition: background 0.2s ease, border-color 0.2s ease;
-    }
-
-    .alive-row-head {
-      grid-column: 1 / -1;
-      display: flex;
-      flex-wrap: wrap;
-      align-items: baseline;
-      justify-content: space-between;
-      gap: 0.35rem 0.75rem;
-    }
-
-    .alive-row-label {
-      font-size: 0.72rem;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--alive-row-label);
-    }
-
-    .alive-row-source {
-      font-size: 0.68rem;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--alive-row-sublabel);
-      border: 1px solid rgba(255, 255, 255, 0.14);
-      border-radius: 999px;
-      padding: 0.1rem 0.5rem;
-      flex-shrink: 0;
-    }
-
-    .alive-row-source--manual {
-      border-color: rgba(var(--accent-rgb), 0.42);
-      color: rgba(255, 255, 255, 0.82);
-    }
-
-    .alive-row-source--scheduled {
-      border-color: rgba(255, 255, 255, 0.2);
-    }
-
-    .alive-row .voice-note-card-time-label {
-      color: var(--alive-row-sublabel);
-    }
-
-    .alive-row-time {
-      font-variant-numeric: tabular-nums;
-      color: rgba(255, 255, 255, 0.92);
-    }
-
-    /* Pushover emergency window ended with no acknowledgment */
-    .alive-row.alive-row--expired {
-      --alive-row-bg: linear-gradient(145deg, rgba(92, 0, 8, 0.92) 0%, rgba(48, 0, 4, 0.96) 55%, rgba(28, 0, 2, 0.98) 100%);
-      --alive-row-border: rgba(200, 24, 40, 0.95);
-      --alive-row-label: #ffc9c9;
-      --alive-row-sublabel: rgba(255, 200, 200, 0.75);
-      box-shadow:
-        inset 0 0 0 1px rgba(120, 10, 20, 0.55),
-        0 0 22px rgba(120, 0, 10, 0.35);
-    }
-
-    .alive-row.alive-row--pending {
-      --alive-row-bg: rgba(90, 55, 10, 0.32);
-      --alive-row-border: rgba(255, 170, 70, 0.42);
-      --alive-row-label: #ffd9a8;
-      --alive-row-sublabel: rgba(255, 210, 160, 0.65);
-    }
-
-    /* Acknowledged: response time from alert to acknowledgment */
-    .alive-row.alive-row--ack-fast {
-      --alive-row-bg: rgba(20, 90, 48, 0.38);
-      --alive-row-border: rgba(80, 200, 120, 0.55);
-      --alive-row-label: #c8f5d8;
-      --alive-row-sublabel: rgba(180, 240, 200, 0.65);
-    }
-
-    .alive-row.alive-row--ack-good {
-      --alive-row-bg: rgba(55, 95, 35, 0.34);
-      --alive-row-border: rgba(140, 200, 80, 0.48);
-      --alive-row-label: #e2f5c8;
-      --alive-row-sublabel: rgba(210, 235, 170, 0.62);
-    }
-
-    .alive-row.alive-row--ack-moderate {
-      --alive-row-bg: rgba(110, 85, 15, 0.38);
-      --alive-row-border: rgba(230, 190, 70, 0.52);
-      --alive-row-label: #ffecc2;
-      --alive-row-sublabel: rgba(255, 225, 160, 0.65);
-    }
-
-    .alive-row.alive-row--ack-slow {
-      --alive-row-bg: rgba(120, 45, 12, 0.42);
-      --alive-row-border: rgba(255, 130, 60, 0.55);
-      --alive-row-label: #ffd4bc;
-      --alive-row-sublabel: rgba(255, 200, 170, 0.65);
-    }
-
-    .alive-row.alive-row--ack-veryslow {
-      --alive-row-bg: rgba(110, 18, 18, 0.5);
-      --alive-row-border: rgba(255, 90, 70, 0.58);
-      --alive-row-label: #ffc8c4;
-      --alive-row-sublabel: rgba(255, 190, 180, 0.68);
-    }
-
-    .alive-row-pending {
-      justify-self: end;
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 6px;
-    }
-
-    .alive-row-remove {
-      font-size: 0.72rem;
-      padding: 0.2rem 0.45rem;
-      min-height: 0;
-      line-height: 1.2;
-    }
-
-    .alive-pill {
-      display: inline-block;
-      padding: 0.12rem 0.45rem;
-      border-radius: 999px;
-      font-size: 0.72rem;
-      font-weight: 600;
-      letter-spacing: 0.02em;
-    }
-
-    .alive-pill.pending {
-      background: rgba(255, 80, 120, 0.2);
-      color: #ff9ec4;
-    }
-
-    .alive-pill.done {
-      background: rgba(120, 220, 160, 0.15);
-      color: #b8f5cf;
-    }
-
-    .alive-pill.expired {
-      background: rgba(30, 0, 0, 0.65);
-      color: #ffdede;
-      border: 1px solid rgba(200, 40, 50, 0.65);
-    }
-
-    @media (max-width: 640px) {
-      .alive-row {
-        grid-template-columns: 1fr 1fr;
-      }
-
-      .alive-row-pending {
-        grid-column: 1 / -1;
-        justify-self: start;
-      }
     }
 
     .voice-notes-shell {
@@ -1788,13 +1354,7 @@
           <div class="app-tabs" role="tablist" aria-label="Summon tabs">
             <button class="tab-button active" id="tab-summon" type="button" data-tab="summon" role="tab" aria-selected="true" aria-controls="summon-panel">Summon</button>
             <button class="tab-button" id="tab-voice-notes" type="button" data-tab="voice-notes" role="tab" aria-selected="false" aria-controls="voice-notes-panel">Sent Summons</button>
-            <button class="tab-button" id="tab-alive" type="button" data-tab="alive" role="tab" aria-selected="false" aria-controls="alive-panel">Alive</button>
           </div>
-          <button type="button" class="icon-text-button alive-settings-button" id="alive-settings-open" aria-label="Alerts and alive options" title="Alerts and alive options">
-            <svg class="alive-cog-icon" viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" focusable="false">
-              <path fill="currentColor" fill-rule="evenodd" d="M11.078 2.25c-.917 0-1.699.663-1.85 1.567l-.291 1.807a4.67 4.67 0 0 0-1.396.22l-1.51-1.51a1.75 1.75 0 0 0-2.474 0L3.22 5.47a1.75 1.75 0 0 0 0 2.474l1.51 1.51a4.67 4.67 0 0 0-.22 1.396l-1.807.291A1.75 1.75 0 0 0 2.25 12.922c0 .917.663 1.699 1.567 1.85l1.807.291c.084.477.198.935.35 1.367l-1.51 1.51a1.75 1.75 0 0 0 0 2.474l1.06 1.06a1.75 1.75 0 0 0 2.474 0l1.51-1.51c.432.152.89.266 1.367.35l.291 1.807A1.75 1.75 0 0 0 12.922 21.75c.917 0 1.699-.663 1.85-1.567l.291-1.807a4.67 4.67 0 0 0 1.396-.22l1.51 1.51a1.75 1.75 0 0 0 2.474 0l1.06-1.06a1.75 1.75 0 0 0 0-2.474l-1.51-1.51c.152-.432.266-.89.35-1.367l1.807-.291A1.75 1.75 0 0 0 21.75 11.078c0-.917-.663-1.699-1.567-1.85l-1.807-.291a4.67 4.67 0 0 0-.22-1.396l1.51-1.51a1.75 1.75 0 0 0 0-2.474l-1.06-1.06a1.75 1.75 0 0 0-2.474 0l-1.51 1.51a4.67 4.67 0 0 0-1.396-.22l-.291-1.807A1.75 1.75 0 0 0 12.922 2.25H11.078ZM12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5Z" clip-rule="evenodd" />
-            </svg>
-          </button>
         </div>
         <section class="tab-panel" id="summon-panel" role="tabpanel" aria-labelledby="tab-summon">
           <form id="summon-form" method="post" enctype="multipart/form-data">
@@ -1884,69 +1444,7 @@
             <div class="voice-notes-sentinel hidden" id="voice-notes-sentinel" aria-hidden="true"></div>
           </div>
         </section>
-        <section class="tab-panel hidden" id="alive-panel" role="tabpanel" aria-labelledby="tab-alive">
-          <div class="alive-shell">
-            <div class="alive-toolbar">
-              <p class="alive-intro" id="alive-intro">Emergency Pushover checks with acknowledgment. Scheduled checks use the daily count from integration options: times fall between 8:30&nbsp;a.m. and 10:30&nbsp;p.m. (local Home Assistant time), spaced so gaps scale with how many checks you configure, plus any manual sends below.</p>
-              <div class="alive-toolbar-actions">
-                <button class="secondary-button" id="alive-send-button" type="button">Send alive check now</button>
-                <p class="alive-toolbar-status" id="alive-toolbar-status" aria-live="polite"></p>
-              </div>
-            </div>
-            <div class="alive-schedule" aria-labelledby="alive-schedule-heading">
-              <h3 class="alive-schedule-title" id="alive-schedule-heading">Scheduled check times</h3>
-              <p class="alive-schedule-caption" id="alive-schedule-caption">Today's random slots (local Home Assistant time) appear here once loaded.</p>
-              <div class="alive-schedule-actions">
-                <button type="button" class="secondary-button" id="alive-reset-schedule-button" title="Same number of checks per day; picks new random times from about a minute from now through 10:30 p.m. local">
-                  Redraw scheduled times
-                </button>
-              </div>
-              <div class="alive-schedule-manual">
-                <h4 class="alive-schedule-subtitle">Schedule a custom check</h4>
-                <p class="alive-schedule-manual-hint">Pick a time in your browser's local timezone and the message shown in Pushover. Up to 14 days ahead.</p>
-                <label for="alive-manual-when">When</label>
-                <input class="alive-schedule-manual-when" id="alive-manual-when" type="datetime-local" autocomplete="off" />
-                <label for="alive-manual-message">Notification message</label>
-                <textarea class="alive-schedule-manual-message" id="alive-manual-message" maxlength="500" rows="3" placeholder="Shown as the Pushover notification body"></textarea>
-                <div class="alive-schedule-manual-actions">
-                  <button type="button" class="secondary-button" id="alive-manual-schedule-button">Add to schedule</button>
-                </div>
-              </div>
-              <ul class="alive-schedule-slots" id="alive-schedule-slots"></ul>
-            </div>
-            <div class="alive-list-wrap">
-              <p class="alive-list-status" id="alive-list-status">Open this tab to load alive checks.</p>
-              <ul class="alive-list" id="alive-list"></ul>
-            </div>
-          </div>
-        </section>
       </section>
-        <div class="modal-overlay hidden" id="alive-settings-overlay" aria-hidden="true">
-          <div class="modal-dialog" role="dialog" aria-modal="true" aria-labelledby="alive-settings-title" tabindex="-1">
-            <div class="modal-header">
-              <h2 class="modal-title" id="alive-settings-title">Settings</h2>
-              <button type="button" class="modal-close" id="alive-settings-close" aria-label="Close">&times;</button>
-            </div>
-            <div class="modal-body">
-              <div class="web-push-bar web-push-bar--modal" id="web-push-bar">
-                <div class="web-push-copy">
-                  <strong>Browser alerts</strong>
-                  <span class="web-push-desc">Subscribe on this device to get a browser notification when a Pushover <em>emergency</em> expires with no acknowledgment (summons and alive checks). Use <strong>Unsubscribe</strong> to turn off alerts on this browser and remove its registration from the server.</span>
-                </div>
-                <div class="web-push-actions">
-                  <button type="button" class="secondary-button" id="web-push-enable">Enable alerts</button>
-                  <button type="button" class="secondary-button hidden" id="web-push-disable" aria-label="Unsubscribe from browser alerts">Unsubscribe</button>
-                  <p class="web-push-status" id="web-push-status" aria-live="polite"></p>
-                </div>
-              </div>
-              <div class="alive-modal-section">
-                <h3 class="alive-modal-section-title">History</h3>
-                <p class="alive-modal-section-desc">Remove every saved alive check from this list. Active or awaiting-ack checks are cancelled with Pushover first.</p>
-                <button type="button" class="secondary-button" id="alive-flush-history-button">Clear all alive history</button>
-              </div>
-            </div>
-          </div>
-        </div>
     </main>
   </div>
   <script>
@@ -1962,20 +1460,6 @@
     const tabButtons = Array.from(document.querySelectorAll("[data-tab]"));
     const summonPanel = document.getElementById("summon-panel");
     const voiceNotesPanel = document.getElementById("voice-notes-panel");
-    const alivePanel = document.getElementById("alive-panel");
-    const aliveList = document.getElementById("alive-list");
-    const aliveListStatus = document.getElementById("alive-list-status");
-    const aliveSendButton = document.getElementById("alive-send-button");
-    const aliveToolbarStatus = document.getElementById("alive-toolbar-status");
-    const aliveSettingsOpenButton = document.getElementById("alive-settings-open");
-    const aliveSettingsOverlay = document.getElementById("alive-settings-overlay");
-    const aliveSettingsCloseButton = document.getElementById("alive-settings-close");
-    const aliveFlushHistoryButton = document.getElementById("alive-flush-history-button");
-    const aliveResetScheduleButton = document.getElementById("alive-reset-schedule-button");
-    const aliveManualScheduleButton = document.getElementById("alive-manual-schedule-button");
-    const webPushEnableButton = document.getElementById("web-push-enable");
-    const webPushDisableButton = document.getElementById("web-push-disable");
-    const webPushStatusEl = document.getElementById("web-push-status");
     const voiceNotesSearchInput = document.getElementById("voice-notes-search");
     const voiceNotesSortBySelect = document.getElementById("voice-notes-sort-by");
     const voiceNotesSortOrderSelect = document.getElementById("voice-notes-sort-order");
@@ -2009,13 +1493,6 @@
     const statusPath = "__STATUS_PATH__";
     const statusStreamPath = "__STATUS_STREAM_PATH__";
     const voiceNotesPath = "__VOICE_NOTES_PATH__";
-    const alivePath = "__ALIVE_PATH__";
-    const webPushVapidPath = "__WEB_PUSH_VAPID_PATH__";
-    const webPushSubscribePath = "__WEB_PUSH_SUBSCRIBE_PATH__";
-    const webPushUnsubscribePath = "__WEB_PUSH_UNSUBSCRIBE_PATH__";
-    const webPushSwPath = "__WEB_PUSH_SW_PATH__";
-    const webPushSwScope = "__WEB_PUSH_SW_SCOPE__";
-    const webPushStorageKey = "loris_summon_webpush_subscription_v1";
     const tokenRefreshWindowSeconds = Number("__TOKEN_REFRESH_WINDOW_SECONDS__") || 0;
     const authStorageKey = "loris_summon_web_jwt";
     const placeholderMessages = __PLACEHOLDER_MESSAGES__;
@@ -2031,7 +1508,6 @@
     let authRefreshInFlight = null;
     let submitInFlight = false;
     let submitAfterVoiceNoteStop = false;
-    let statusBootstrapComplete = false;
     let statusReconnectTimer = 0;
     let statusEventSource = null;
     const activeConfetti = [];
@@ -2078,14 +1554,7 @@
     let voiceNotesRefreshQueued = false;
     let historySnapshotSignature = "";
     let lastStatusPayload = null;
-    let aliveRenderSignature = "";
     let voiceNotesScheduledRenderSignature = "";
-    let aliveScheduleClockTimer = 0;
-    let watchedAliveEventStates = new Map();
-    let aliveSendInFlight = false;
-    let aliveSettingsEscBound = false;
-    let webPushBusy = false;
-    let webPushLocalSubscribed = false;
     const voiceNoteEventIds = new Set();
 
     // Guard attachment status updates so UI polish cannot break submit success
@@ -2379,8 +1848,6 @@
     }
     initializeVoiceNoteCapture();
     initializeVoiceNotesPanel();
-    initializeAlivePanel();
-    initializeWebPushBar();
     void initializeAuthState();
 
     window.addEventListener("beforeunload", () => {
@@ -2663,7 +2130,7 @@
           setVoiceNoteStatus(defaultVoiceNoteStatus);
           updateSummonWhenBounds();
           voiceNotesScheduledRenderSignature = "";
-          await refreshAliveFromStatus();
+          await bootstrapStatusWatch();
           markVoiceNotesDirty();
         }
         return;
@@ -2868,573 +2335,6 @@
       updateVoiceNotesSentinel();
     }
 
-    function closeAliveSettingsModal() {
-      if (!aliveSettingsOverlay) {
-        return;
-      }
-      if (!aliveSettingsOverlay.classList.contains("hidden")) {
-        aliveSettingsOverlay.classList.add("hidden");
-        aliveSettingsOverlay.setAttribute("aria-hidden", "true");
-        document.body.style.removeProperty("overflow");
-        if (aliveSettingsEscBound) {
-          document.removeEventListener("keydown", onAliveSettingsEscapeKey);
-          aliveSettingsEscBound = false;
-        }
-      }
-    }
-
-    function onAliveSettingsEscapeKey(event) {
-      if (event.key === "Escape") {
-        closeAliveSettingsModal();
-      }
-    }
-
-    function openAliveSettingsModal() {
-      if (!aliveSettingsOverlay) {
-        return;
-      }
-      aliveSettingsOverlay.classList.remove("hidden");
-      aliveSettingsOverlay.setAttribute("aria-hidden", "false");
-      document.body.style.overflow = "hidden";
-      if (!aliveSettingsEscBound) {
-        document.addEventListener("keydown", onAliveSettingsEscapeKey);
-        aliveSettingsEscBound = true;
-      }
-      void syncWebPushRegistrationState();
-      if (lastStatusPayload) {
-        updateWebPushSubscriptionSummary(lastStatusPayload);
-      }
-      const dlg = aliveSettingsOverlay.querySelector(".modal-dialog");
-      if (dlg && typeof dlg.focus === "function") {
-        window.requestAnimationFrame(() => {
-          dlg.focus();
-        });
-      }
-    }
-
-    function initializeAlivePanel() {
-      if (aliveSendButton) {
-        aliveSendButton.addEventListener("click", () => {
-          void sendManualAliveCheck();
-        });
-      }
-      if (aliveSettingsOpenButton && aliveSettingsOverlay) {
-        aliveSettingsOpenButton.addEventListener("click", () => {
-          openAliveSettingsModal();
-        });
-      }
-      if (aliveSettingsCloseButton) {
-        aliveSettingsCloseButton.addEventListener("click", () => {
-          closeAliveSettingsModal();
-        });
-      }
-      if (aliveSettingsOverlay) {
-        aliveSettingsOverlay.addEventListener("click", (event) => {
-          if (event.target === aliveSettingsOverlay) {
-            closeAliveSettingsModal();
-          }
-        });
-      }
-      if (aliveFlushHistoryButton) {
-        aliveFlushHistoryButton.addEventListener("click", () => {
-          void flushAliveHistory();
-        });
-      }
-      if (aliveResetScheduleButton) {
-        aliveResetScheduleButton.addEventListener("click", () => {
-          void resetAliveScheduleTimes();
-        });
-      }
-      if (aliveManualScheduleButton) {
-        aliveManualScheduleButton.addEventListener("click", () => {
-          void scheduleManualAliveCheck();
-        });
-      }
-      wireDatetimeLocalOpenPickerOnFieldClick(document.getElementById("alive-manual-when"));
-    }
-
-    function urlBase64ToUint8Array(base64String) {
-      const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-      const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-      const rawData = window.atob(base64);
-      const outputArray = new Uint8Array(rawData.length);
-      for (let i = 0; i < rawData.length; ++i) {
-        outputArray[i] = rawData.charCodeAt(i);
-      }
-      return outputArray;
-    }
-
-    function readStoredWebPushEndpoint() {
-      try {
-        const raw = window.localStorage.getItem(webPushStorageKey);
-        if (!raw) {
-          return "";
-        }
-        const parsed = JSON.parse(raw);
-        if (parsed && typeof parsed.endpoint === "string") {
-          return parsed.endpoint.trim();
-        }
-      } catch (error) {
-        /* ignore */
-      }
-      return "";
-    }
-
-    function webPushCanUnsubscribe() {
-      return webPushLocalSubscribed || Boolean(readStoredWebPushEndpoint());
-    }
-
-    function refreshWebPushButtonVisibility() {
-      if (webPushEnableButton) {
-        webPushEnableButton.classList.toggle("hidden", webPushLocalSubscribed);
-      }
-      if (webPushDisableButton) {
-        webPushDisableButton.classList.toggle("hidden", !webPushCanUnsubscribe());
-      }
-    }
-
-    function updateWebPushSubscriptionSummary(payload) {
-      if (!webPushStatusEl) {
-        return;
-      }
-      const wp = payload && payload.web_push;
-      const count = wp && Number.isFinite(Number(wp.subscription_count)) ? Number(wp.subscription_count) : null;
-      const max = wp && Number.isFinite(Number(wp.max_subscriptions)) ? Number(wp.max_subscriptions) : null;
-      let suffix = "";
-      if (count !== null && max !== null) {
-        suffix = ` (${count}/${max} endpoint(s) stored for this login).`;
-      }
-      const ghost = !webPushLocalSubscribed && readStoredWebPushEndpoint();
-      if (webPushLocalSubscribed) {
-        webPushStatusEl.textContent = `Alerts enabled on this device.${suffix}`;
-      } else if (ghost) {
-        webPushStatusEl.textContent = `No live push subscription in this browser, but a registration is still saved. Tap Unsubscribe to remove it from the server.${suffix}`;
-      } else {
-        webPushStatusEl.textContent = `Alerts are off on this device.${suffix}`;
-      }
-    }
-
-    async function syncWebPushRegistrationState() {
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        webPushLocalSubscribed = false;
-        if (webPushStatusEl) {
-          const ghost = readStoredWebPushEndpoint();
-          webPushStatusEl.textContent = ghost ?
-            "This browser does not support Web Push, but a registration is saved. Tap Unsubscribe to remove it from the server." :
-            "This browser does not support Web Push.";
-        }
-        if (webPushEnableButton) {
-          webPushEnableButton.disabled = true;
-        }
-        refreshWebPushButtonVisibility();
-        return;
-      }
-      try {
-        const reg = await navigator.serviceWorker.getRegistration(webPushSwScope);
-        const sub = reg ? await reg.pushManager.getSubscription() : null;
-        webPushLocalSubscribed = Boolean(sub);
-      } catch (error) {
-        webPushLocalSubscribed = false;
-      }
-      refreshWebPushButtonVisibility();
-    }
-
-    async function subscribeWebPushNotifications() {
-      if (webPushBusy || !authToken) {
-        return;
-      }
-      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
-        showToast("This browser does not support Web Push.", "error");
-        return;
-      }
-      webPushBusy = true;
-      if (webPushEnableButton) {
-        webPushEnableButton.disabled = true;
-      }
-      try {
-        const perm = await Notification.requestPermission();
-        if (perm !== "granted") {
-          if (webPushStatusEl) {
-            webPushStatusEl.textContent = "Notification permission was not granted.";
-          }
-          showToast("Notification permission is required for alerts.", "error");
-          return;
-        }
-        if (tokenNeedsRefresh()) {
-          const refreshed = await refreshAccessToken();
-          if (!refreshed && !authToken) {
-            return;
-          }
-        }
-        const vResp = await fetch(webPushVapidPath, {
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          }
-        });
-        const vPayload = await vResp.json().catch(() => null);
-        if (vResp.status === 401 || (vPayload && vPayload.session_expired)) {
-          handleLogout(vPayload && vPayload.message_text ? vPayload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!vResp.ok || !vPayload || !vPayload.ok || !vPayload.public_key) {
-          throw new Error((vPayload && vPayload.reason) || "vapid_unavailable");
-        }
-        await navigator.serviceWorker.register(webPushSwPath, {
-          scope: webPushSwScope
-        });
-        const reg = await navigator.serviceWorker.ready;
-        const existing = await reg.pushManager.getSubscription();
-        if (existing) {
-          await existing.unsubscribe();
-        }
-        const applicationServerKey = urlBase64ToUint8Array(vPayload.public_key);
-        const subscription = await reg.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey
-        });
-        const subJson = subscription.toJSON();
-        const sResp = await fetch(webPushSubscribePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify(subJson)
-        });
-        const sPayload = await sResp.json().catch(() => null);
-        if (sResp.status === 401 || (sPayload && sPayload.session_expired)) {
-          handleLogout(sPayload && sPayload.message_text ? sPayload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!sResp.ok || !sPayload || !sPayload.ok) {
-          throw new Error((sPayload && sPayload.reason) || "subscribe_failed");
-        }
-        try {
-          window.localStorage.setItem(webPushStorageKey, JSON.stringify(subJson));
-        } catch (storageError) {
-          /* ignore */
-        }
-        webPushLocalSubscribed = true;
-        refreshWebPushButtonVisibility();
-        if (webPushStatusEl) {
-          webPushStatusEl.textContent = "Alerts enabled on this device.";
-        }
-        showToast("Browser alerts enabled.", "success");
-        if (lastStatusPayload) {
-          updateWebPushSubscriptionSummary(lastStatusPayload);
-        }
-      } catch (error) {
-        console.error("Lori's Summon web push subscribe failed", error);
-        const reason = error && error.message ? error.message : "unknown";
-        showToast(randomErrorMessage(reason), "error");
-        if (webPushStatusEl) {
-          webPushStatusEl.textContent = "Could not enable alerts.";
-        }
-      } finally {
-        webPushBusy = false;
-        if (webPushEnableButton) {
-          webPushEnableButton.disabled = false;
-        }
-      }
-    }
-
-    async function unsubscribeWebPushNotifications() {
-      if (webPushBusy || !authToken) {
-        return;
-      }
-      if (!webPushCanUnsubscribe()) {
-        showToast("Nothing to unsubscribe on this browser.", "success");
-        return;
-      }
-      webPushBusy = true;
-      if (webPushDisableButton) {
-        webPushDisableButton.disabled = true;
-      }
-      if (webPushEnableButton) {
-        webPushEnableButton.disabled = true;
-      }
-      try {
-        let endpoint = "";
-        if ("serviceWorker" in navigator && "PushManager" in window) {
-          try {
-            const reg = await navigator.serviceWorker.getRegistration(webPushSwScope);
-            const sub = reg ? await reg.pushManager.getSubscription() : null;
-            if (sub) {
-              endpoint = String(sub.endpoint || "").trim();
-              await sub.unsubscribe();
-            }
-          } catch (error) {
-            console.error("Lori's Summon web push local unsubscribe failed", error);
-          }
-        }
-        if (!endpoint) {
-          endpoint = readStoredWebPushEndpoint();
-        }
-        if (endpoint) {
-          if (tokenNeedsRefresh()) {
-            const refreshed = await refreshAccessToken();
-            if (!refreshed && !authToken) {
-              return;
-            }
-          }
-          const uResp = await fetch(webPushUnsubscribePath, {
-            method: "POST",
-            credentials: "same-origin",
-            headers: {
-              "Accept": "application/json",
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${authToken}`
-            },
-            body: JSON.stringify({
-              endpoint
-            })
-          });
-          const uPayload = await uResp.json().catch(() => null);
-          if (uResp.status === 401 || (uPayload && uPayload.session_expired)) {
-            handleLogout(uPayload && uPayload.message_text ? uPayload.message_text : "Session expired. Sign in again.");
-            return;
-          }
-        }
-        try {
-          window.localStorage.removeItem(webPushStorageKey);
-        } catch (storageError) {
-          /* ignore */
-        }
-        await syncWebPushRegistrationState();
-        await refreshAliveFromStatus();
-        if (webPushStatusEl) {
-          webPushStatusEl.textContent = "Unsubscribed; alerts are off on this device.";
-        }
-        showToast("Unsubscribed from browser alerts.", "success");
-        if (lastStatusPayload) {
-          updateWebPushSubscriptionSummary(lastStatusPayload);
-        }
-      } catch (error) {
-        console.error("Lori's Summon web push unsubscribe failed", error);
-        showToast(randomErrorMessage("web push unsubscribe failed"), "error");
-      } finally {
-        webPushBusy = false;
-        if (webPushDisableButton) {
-          webPushDisableButton.disabled = false;
-        }
-        if (webPushEnableButton) {
-          const pushSupported = "serviceWorker" in navigator && "PushManager" in window;
-          webPushEnableButton.disabled = !pushSupported;
-        }
-      }
-    }
-
-    function initializeWebPushBar() {
-      if (webPushEnableButton) {
-        webPushEnableButton.addEventListener("click", () => {
-          void subscribeWebPushNotifications();
-        });
-      }
-      if (webPushDisableButton) {
-        webPushDisableButton.addEventListener("click", () => {
-          void unsubscribeWebPushNotifications();
-        });
-      }
-    }
-
-    function aliveHistorySignature(payload) {
-      const items = Array.isArray(payload && payload.alive_history) ? payload.alive_history : [];
-      if (items.length === 0) {
-        return "";
-      }
-      return items.map((item) => [
-        String(item && item.event_id ? item.event_id : ""),
-        String(item && item.disposition ? item.disposition : ""),
-        String(item && item.acknowledged_at ? item.acknowledged_at : ""),
-        String(item && item.pushover_acknowledged_at ? item.pushover_acknowledged_at : ""),
-        String(item && item.pushover_expired ? "1" : "0"),
-        String(item && item.active ? "1" : "0"),
-        String(
-          item && item.emergency_acknowledged_after_seconds !== undefined &&
-          item.emergency_acknowledged_after_seconds !== null ?
-          item.emergency_acknowledged_after_seconds :
-          ""
-        ),
-        String(item && item.source ? item.source : ""),
-      ].join("~")).join("|");
-    }
-
-    function aliveScheduleSignature(payload) {
-      const day = String((payload && payload.alive_schedule_day) || "").trim();
-      const slots = Array.isArray(payload && payload.alive_schedule_slots) ? payload.alive_schedule_slots : [];
-      if (!day && slots.length === 0) {
-        return "";
-      }
-      return [
-        day,
-        slots.map((slot) => [
-          String((slot && slot.at) || ""),
-          slot && slot.fired ? "1" : "0",
-          String((slot && slot.local_time) || ""),
-          slot && slot.manual ? "1" : "0",
-          String((slot && slot.slot_id) || ""),
-          String((slot && slot.message) || "").slice(0, 48),
-        ].join("~")).join(";"),
-      ].join("|");
-    }
-
-    function alivePanelSignature(payload) {
-      return `${aliveHistorySignature(payload)}\u0001${aliveScheduleSignature(payload)}`;
-    }
-
-    function aliveRowExpired(item) {
-      return Boolean(item && item.pushover_expired);
-    }
-
-    function aliveRowPending(item) {
-      if (!item || item.pushover_expired) {
-        return false;
-      }
-      if (String(item.disposition || "").trim() === "acknowledged") {
-        return false;
-      }
-      if (String(item.acknowledged_at || "").trim() || String(item.pushover_acknowledged_at || "").trim()) {
-        return false;
-      }
-      return Boolean(String(item.pushover_receipt || "").trim());
-    }
-
-    function aliveAcknowledgmentSeconds(item) {
-      if (!item) {
-        return null;
-      }
-      const raw = item.emergency_acknowledged_after_seconds;
-      if (raw !== null && raw !== undefined && raw !== "") {
-        const parsed = Number(raw);
-        if (Number.isFinite(parsed) && parsed >= 0) {
-          return Math.round(parsed);
-        }
-      }
-      const t0 = Date.parse(String(item.triggered_at || ""));
-      const t1 = Date.parse(
-        String(item.pushover_acknowledged_at || item.acknowledged_at || "")
-      );
-      if (Number.isFinite(t0) && Number.isFinite(t1) && t1 >= t0) {
-        return Math.max(0, Math.round((t1 - t0) / 1000));
-      }
-      return null;
-    }
-
-    function aliveCheckSourceChip(item) {
-      const raw = String((item && item.source) || "").trim();
-      if (raw === "alive_manual") {
-        return {
-          text: "Manual",
-          cls: "alive-row-source alive-row-source--manual"
-        };
-      }
-      if (raw === "alive_schedule") {
-        return {
-          text: "Scheduled",
-          cls: "alive-row-source alive-row-source--scheduled"
-        };
-      }
-      if (raw === "alive_manual_planned") {
-        return {
-          text: "Planned",
-          cls: "alive-row-source alive-row-source--scheduled"
-        };
-      }
-      if (raw) {
-        return {
-          text: raw.replace(/^alive_/, "").replace(/_/g, " ") || "Other",
-          cls: "alive-row-source alive-row-source--scheduled"
-        };
-      }
-      return null;
-    }
-
-    function aliveAckBandClass(seconds) {
-      /* ≤2 min fast; then 2–5, 5–15, 15–30 min; ≥30 min uses slowest ack color (including beyond 1 h) */
-      if (seconds <= 120) {
-        return "alive-row--ack-fast";
-      }
-      if (seconds <= 300) {
-        return "alive-row--ack-good";
-      }
-      if (seconds <= 900) {
-        return "alive-row--ack-moderate";
-      }
-      if (seconds <= 1800) {
-        return "alive-row--ack-slow";
-      }
-      return "alive-row--ack-veryslow";
-    }
-
-    function buildAliveWatchedMap(payload) {
-      const watchedEvents = Array.isArray(payload && payload.alive_watched_events) ? payload.alive_watched_events : [];
-      const watchedMap = new Map();
-      for (const item of watchedEvents) {
-        const eventId = item && item.event_id ? String(item.event_id).trim() : "";
-        if (!eventId) {
-          continue;
-        }
-        watchedMap.set(eventId, item);
-      }
-      return watchedMap;
-    }
-
-    function findAliveRecord(payload, eventId) {
-      const history = Array.isArray(payload && payload.alive_history) ? payload.alive_history : [];
-      return history.find((row) => String((row && row.event_id) || "").trim() === eventId) || null;
-    }
-
-    function aliveAcknowledgedMessage(event) {
-      const elapsedText = formatEmergencyAcknowledgmentDuration(event);
-      const device = String(event.pushover_acknowledged_by_device || "").trim();
-      if (device) {
-        return `Alive check acknowledged in ${elapsedText} on ${device}.`;
-      }
-      return `Alive check acknowledged in ${elapsedText}.`;
-    }
-
-    function syncAliveWatchedToasts(payload) {
-      const previousAlive = new Map(watchedAliveEventStates);
-      const nextAlive = buildAliveWatchedMap(payload);
-      watchedAliveEventStates.clear();
-      nextAlive.forEach((value, key) => {
-        watchedAliveEventStates.set(key, value);
-      });
-      previousAlive.forEach((previousEvent, eventId) => {
-        if (nextAlive.has(eventId)) {
-          return;
-        }
-        const resolved = findAliveRecord(payload, eventId) || previousEvent;
-        const hadAckTime = Boolean(String(previousEvent.pushover_acknowledged_at || "").trim() || String(previousEvent.acknowledged_at || "").trim());
-        const hasAckTime = Boolean(String(resolved.pushover_acknowledged_at || "").trim() || String(resolved.acknowledged_at || "").trim());
-        if (hasAckTime && !hadAckTime) {
-          showToast(aliveAcknowledgedMessage(resolved), "success");
-          return;
-        }
-        if (resolved && resolved.pushover_expired && !previousEvent.pushover_expired) {
-          showToast(randomErrorMessage("alive check expired"), "error");
-        }
-      });
-    }
-
-    function updateAliveManualScheduleBounds() {
-      const el = document.getElementById("alive-manual-when");
-      if (!el) {
-        return;
-      }
-      const pad = (n) => String(n).padStart(2, "0");
-      const minD = new Date();
-      minD.setMinutes(minD.getMinutes() + 2);
-      el.min = `${minD.getFullYear()}-${pad(minD.getMonth() + 1)}-${pad(minD.getDate())}T${pad(minD.getHours())}:${pad(minD.getMinutes())}`;
-      const maxD = new Date();
-      maxD.setDate(maxD.getDate() + 14);
-      el.max = `${maxD.getFullYear()}-${pad(maxD.getMonth() + 1)}-${pad(maxD.getDate())}T${pad(maxD.getHours())}:${pad(maxD.getMinutes())}`;
-    }
-
     function updateSummonWhenBounds() {
       const el = document.getElementById("summon-when");
       if (!el) {
@@ -3459,7 +2359,7 @@
         }
         try {
           el.showPicker();
-        } catch (err) {
+        } catch {
           /* Picker already open or environment disallows showPicker */
         }
       });
@@ -3476,104 +2376,6 @@
       return parsed.toISOString();
     }
 
-    function stopAliveScheduleClock() {
-      if (!aliveScheduleClockTimer) {
-        return;
-      }
-      window.clearInterval(aliveScheduleClockTimer);
-      aliveScheduleClockTimer = 0;
-    }
-
-    function startAliveScheduleClock() {
-      stopAliveScheduleClock();
-      aliveScheduleClockTimer = window.setInterval(() => {
-        if (!lastStatusPayload) {
-          return;
-        }
-        if (activeTab === "alive") {
-          renderAliveSchedule(lastStatusPayload);
-        } else if (activeTab === "voice-notes") {
-          renderVoiceNotesScheduledRegion(lastStatusPayload);
-        }
-      }, 15000);
-    }
-
-    function renderAliveSchedule(payload) {
-      const listEl = document.getElementById("alive-schedule-slots");
-      const captionEl = document.getElementById("alive-schedule-caption");
-      if (!listEl) {
-        return;
-      }
-      const nowMs = Date.now();
-      const day = String((payload && payload.alive_schedule_day) || "").trim();
-      const slots = Array.isArray(payload && payload.alive_schedule_slots) ? payload.alive_schedule_slots : [];
-      if (captionEl) {
-        if (day) {
-          captionEl.textContent =
-            `Calendar day ${day} in Home Assistant's time zone. Times below are local to that zone.`;
-        } else {
-          captionEl.textContent =
-            "Today's random slots (local Home Assistant time) appear here once loaded.";
-        }
-      }
-      listEl.innerHTML = "";
-      if (slots.length === 0) {
-        const li = document.createElement("li");
-        li.textContent = day ? "No scheduled random slots on file for this day yet." : "Waiting for schedule…";
-        listEl.appendChild(li);
-        return;
-      }
-      slots.forEach((slot) => {
-        if (!slot) {
-          return;
-        }
-        const li = document.createElement("li");
-        const fired = Boolean(slot.fired);
-        const isManual = Boolean(slot.manual);
-        if (fired) {
-          li.classList.add("alive-schedule-fired");
-        }
-        if (isManual) {
-          li.classList.add("alive-schedule-slot--manual");
-        }
-        const rawAt = String((slot && slot.at) || "").trim();
-        const atMs = rawAt ? Date.parse(rawAt) : NaN;
-        const isPast = Number.isFinite(atMs) && atMs < nowMs;
-        const timeSpan = document.createElement("span");
-        timeSpan.className = "alive-schedule-time";
-        if (isPast) {
-          timeSpan.classList.add("alive-schedule-time--past");
-        }
-        timeSpan.textContent = String(slot.local_time || "").trim() || rawAt || "—";
-        li.appendChild(timeSpan);
-        if (isManual && String(slot.message || "").trim()) {
-          const msgSpan = document.createElement("span");
-          msgSpan.className = "alive-schedule-msg";
-          const full = String(slot.message || "").trim();
-          msgSpan.title = full;
-          msgSpan.textContent = full.length > 64 ? `${full.slice(0, 62)}…` : ` · ${full}`;
-          li.appendChild(msgSpan);
-        }
-        if (fired) {
-          const sent = document.createElement("span");
-          sent.className = "alive-schedule-sent";
-          sent.textContent = "sent";
-          li.appendChild(sent);
-        }
-        if (isManual && !fired && String(slot.slot_id || "").trim()) {
-          const sid = String(slot.slot_id || "").trim();
-          const rm = document.createElement("button");
-          rm.type = "button";
-          rm.className = "secondary-button alive-schedule-unschedule";
-          rm.textContent = "Remove";
-          rm.addEventListener("click", () => {
-            void removeManualAliveSchedule(sid);
-          });
-          li.appendChild(rm);
-        }
-        listEl.appendChild(li);
-      });
-    }
 
     function pendingFilteredSummonScheduleSlots(payload, searchText) {
       const raw = Array.isArray(payload && payload.summon_schedule_slots) ? payload.summon_schedule_slots : [];
@@ -3680,499 +2482,6 @@
       });
     }
 
-    function renderAliveList(payload) {
-      if (!aliveList) {
-        return;
-      }
-      const items = Array.isArray(payload && payload.alive_history) ? payload.alive_history : [];
-      aliveList.innerHTML = "";
-      if (items.length === 0) {
-        if (aliveListStatus) {
-          aliveListStatus.textContent = "No alive checks recorded yet.";
-        }
-        return;
-      }
-      if (aliveListStatus) {
-        aliveListStatus.textContent = `${items.length} check${items.length === 1 ? "" : "s"} recorded.`;
-      }
-      items.forEach((item) => {
-        if (!item) {
-          return;
-        }
-        const li = document.createElement("li");
-        li.classList.add("alive-row");
-        const expired = aliveRowExpired(item);
-        const pending = aliveRowPending(item);
-        if (expired) {
-          li.classList.add("alive-row--expired");
-        } else if (pending) {
-          li.classList.add("alive-row--pending");
-        } else {
-          const ackSeconds = aliveAcknowledgmentSeconds(item);
-          if (ackSeconds !== null) {
-            li.classList.add(aliveAckBandClass(ackSeconds));
-          }
-        }
-        const head = document.createElement("div");
-        head.className = "alive-row-head";
-        const label = document.createElement("div");
-        label.className = "alive-row-label";
-        label.textContent = "Alive check";
-        head.appendChild(label);
-        const sourceChip = aliveCheckSourceChip(item);
-        if (sourceChip) {
-          const src = document.createElement("span");
-          src.className = sourceChip.cls;
-          src.textContent = sourceChip.text;
-          head.appendChild(src);
-        }
-        const sentLabel = document.createElement("div");
-        sentLabel.className = "alive-row-time";
-        sentLabel.innerHTML = `<span class="voice-note-card-time-label">Sent</span><br><span class="alive-row-time">${escapeHtml(formatVoiceNoteTimestamp(item.triggered_at))}</span>`;
-        const ackLabel = document.createElement("div");
-        ackLabel.className = "alive-row-time";
-        const ackIso = String(item.pushover_acknowledged_at || item.acknowledged_at || "").trim();
-        ackLabel.innerHTML = `<span class="voice-note-card-time-label">Acknowledged</span><br><span class="alive-row-time">${ackIso ? escapeHtml(formatVoiceNoteTimestamp(ackIso)) : "—"}</span>`;
-        const durationCell = document.createElement("div");
-        durationCell.className = "alive-row-time";
-        let durationText = "—";
-        if (!expired && !pending) {
-          durationText = formatEmergencyAcknowledgmentDuration(item);
-        }
-        durationCell.innerHTML = `<span class="voice-note-card-time-label">Duration</span><br><span class="alive-row-time">${escapeHtml(durationText)}</span>`;
-        const pillWrap = document.createElement("div");
-        pillWrap.className = "alive-row-pending";
-        const pill = document.createElement("span");
-        let pillClass = "alive-pill done";
-        let pillText = "Acked";
-        if (expired) {
-          pillClass = "alive-pill expired";
-          pillText = "Expired";
-        } else if (pending) {
-          pillClass = "alive-pill pending";
-          pillText = "Awaiting ack";
-        }
-        pill.className = pillClass;
-        pill.textContent = pillText;
-        pillWrap.appendChild(pill);
-        if (!pending) {
-          const eventId = String(item.event_id || "").trim();
-          if (eventId) {
-            const removeBtn = document.createElement("button");
-            removeBtn.type = "button";
-            removeBtn.className = "secondary-button alive-row-remove";
-            removeBtn.textContent = "Remove";
-            removeBtn.addEventListener("click", () => {
-              void deleteAliveCheckByEventId(eventId);
-            });
-            pillWrap.appendChild(removeBtn);
-          }
-        }
-        li.appendChild(head);
-        li.appendChild(sentLabel);
-        li.appendChild(ackLabel);
-        li.appendChild(durationCell);
-        li.appendChild(pillWrap);
-        aliveList.appendChild(li);
-      });
-    }
-
-    function updateAliveIntroFromStatus(payload) {
-      const el = document.getElementById("alive-intro");
-      if (!el) {
-        return;
-      }
-      const nRaw = payload && payload.alive_schedule_per_day;
-      const n = typeof nRaw === "number" ? nRaw : Number.parseInt(String(nRaw || ""), 10);
-      if (!Number.isFinite(n) || n < 1) {
-        return;
-      }
-      const noun = n === 1 ? "check" : "checks";
-      el.textContent =
-        `Emergency Pushover checks with acknowledgment. Up to ${n} scheduled ${noun} run per day between 8:30 a.m. and 10:30 p.m. (local Home Assistant time), with spacing that scales to the count so checks stay spread out, plus any manual sends below.`;
-    }
-
-    function syncAlivePanel(payload) {
-      if (activeTab !== "alive") {
-        return;
-      }
-      const signature = alivePanelSignature(payload);
-      if (signature === aliveRenderSignature) {
-        return;
-      }
-      aliveRenderSignature = signature;
-      renderAliveSchedule(payload);
-      renderAliveList(payload);
-    }
-
-    async function refreshAliveFromStatus() {
-      if (!authToken) {
-        showLoginPanel();
-        return false;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return false;
-        }
-      }
-      try {
-        const response = await fetch(statusPath, {
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          }
-        });
-        if (response.status === 401) {
-          let payload = null;
-          try {
-            payload = await response.json();
-          } catch (error) {
-            payload = null;
-          }
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return false;
-        }
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const payload = await response.json();
-        lastStatusPayload = payload;
-        aliveRenderSignature = "";
-        voiceNotesScheduledRenderSignature = "";
-        syncWatchedEvents(payload);
-        return true;
-      } catch (error) {
-        console.error("Lori's Summon alive status fetch failed", error);
-        if (aliveListStatus) {
-          aliveListStatus.textContent = "Could not load alive checks.";
-        }
-        return false;
-      }
-    }
-
-    async function sendManualAliveCheck() {
-      if (!aliveSendButton || aliveSendInFlight) {
-        return;
-      }
-      if (!authToken) {
-        showLoginPanel();
-        return;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return;
-        }
-      }
-      aliveSendInFlight = true;
-      aliveSendButton.disabled = true;
-      if (aliveToolbarStatus) {
-        aliveToolbarStatus.textContent = "Sending alive check...";
-      }
-      try {
-        const response = await fetch(alivePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            action: "send"
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (response.status === 401 || (payload && payload.session_expired)) {
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!response.ok || !payload || !payload.ok) {
-          throw new Error((payload && payload.message_text) || `HTTP ${response.status}`);
-        }
-        if (aliveToolbarStatus) {
-          aliveToolbarStatus.textContent = payload.message_text || "Alive check sent.";
-        }
-        showToast(payload.message_text || "Alive check sent.", "success");
-        await refreshAliveFromStatus();
-      } catch (error) {
-        console.error("Lori's Summon manual alive check failed", error);
-        const message = error && error.message ? error.message : "Request failed.";
-        if (aliveToolbarStatus) {
-          aliveToolbarStatus.textContent = message;
-        }
-        showToast(randomErrorMessage(message), "error");
-      } finally {
-        aliveSendInFlight = false;
-        aliveSendButton.disabled = false;
-      }
-    }
-
-    async function deleteAliveCheckByEventId(eventId) {
-      const eid = String(eventId || "").trim();
-      if (!eid || !authToken) {
-        showLoginPanel();
-        return;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return;
-        }
-      }
-      try {
-        const response = await fetch(alivePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            action: "delete",
-            event_id: eid
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (response.status === 401 || (payload && payload.session_expired)) {
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (response.status === 409) {
-          showToast(payload && payload.message_text ? payload.message_text : "That check is still active.", "error");
-          return;
-        }
-        if (response.status === 404 || !payload || !payload.ok) {
-          showToast(payload && payload.message_text ? payload.message_text : "Alive check not found.", "error");
-          return;
-        }
-        showToast(payload.message_text || "Alive check removed.", "success");
-        await refreshAliveFromStatus();
-      } catch (error) {
-        console.error("Lori's Summon alive delete failed", error);
-        showToast(randomErrorMessage("alive delete failed"), "error");
-      }
-    }
-
-    async function flushAliveHistory() {
-      if (!authToken) {
-        showLoginPanel();
-        return;
-      }
-      if (!window.confirm("Clear every alive check from history? Active checks will be cancelled with Pushover first.")) {
-        return;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return;
-        }
-      }
-      if (aliveFlushHistoryButton) {
-        aliveFlushHistoryButton.disabled = true;
-      }
-      try {
-        const response = await fetch(alivePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            action: "flush"
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (response.status === 401 || (payload && payload.session_expired)) {
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!response.ok || !payload || !payload.ok) {
-          throw new Error((payload && payload.message_text) || `HTTP ${response.status}`);
-        }
-        showToast(payload.message_text || "Alive history cleared.", "success");
-        closeAliveSettingsModal();
-        await refreshAliveFromStatus();
-      } catch (error) {
-        console.error("Lori's Summon alive flush failed", error);
-        showToast(randomErrorMessage("alive flush failed"), "error");
-      } finally {
-        if (aliveFlushHistoryButton) {
-          aliveFlushHistoryButton.disabled = false;
-        }
-      }
-    }
-
-    async function resetAliveScheduleTimes() {
-      if (!aliveResetScheduleButton) {
-        return;
-      }
-      if (!authToken) {
-        showLoginPanel();
-        return;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return;
-        }
-      }
-      aliveResetScheduleButton.disabled = true;
-      try {
-        const response = await fetch(alivePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            action: "reset_schedule"
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (response.status === 401 || (payload && payload.session_expired)) {
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!response.ok || !payload || !payload.ok) {
-          showToast(
-            (payload && payload.message_text) || "Could not redraw scheduled times.",
-            "error"
-          );
-          return;
-        }
-        showToast(payload.message_text || "Scheduled times redrawn.", "success");
-        aliveRenderSignature = "";
-        await refreshAliveFromStatus();
-      } catch (error) {
-        console.error("Lori's Summon alive schedule reset failed", error);
-        showToast(randomErrorMessage("could not redraw schedule"), "error");
-      } finally {
-        aliveResetScheduleButton.disabled = false;
-      }
-    }
-
-    async function scheduleManualAliveCheck() {
-      const whenEl = document.getElementById("alive-manual-when");
-      const msgEl = document.getElementById("alive-manual-message");
-      if (!whenEl || !msgEl || !aliveManualScheduleButton) {
-        return;
-      }
-      if (!authToken) {
-        showLoginPanel();
-        return;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return;
-        }
-      }
-      const whenIso = localDateTimeValueToUtcIso(String(whenEl.value || "").trim());
-      const message = String(msgEl.value || "").trim();
-      if (!whenIso) {
-        showToast("Choose a date and time.", "error");
-        return;
-      }
-      if (!message) {
-        showToast("Enter a notification message.", "error");
-        return;
-      }
-      aliveManualScheduleButton.disabled = true;
-      try {
-        const response = await fetch(alivePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            action: "schedule_alive",
-            when: whenIso,
-            message
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (response.status === 401 || (payload && payload.session_expired)) {
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!response.ok || !payload || !payload.ok) {
-          showToast(
-            (payload && payload.message_text) || "Could not add that schedule.",
-            "error"
-          );
-          return;
-        }
-        showToast(payload.message_text || "Scheduled.", "success");
-        msgEl.value = "";
-        whenEl.value = "";
-        updateAliveManualScheduleBounds();
-        aliveRenderSignature = "";
-        await refreshAliveFromStatus();
-      } catch (error) {
-        console.error("Lori's Summon schedule alive failed", error);
-        showToast(randomErrorMessage("could not add schedule"), "error");
-      } finally {
-        aliveManualScheduleButton.disabled = false;
-      }
-    }
-
-    async function removeManualAliveSchedule(slotId) {
-      const sid = String(slotId || "").trim();
-      if (!sid || !authToken) {
-        return;
-      }
-      if (tokenNeedsRefresh()) {
-        const refreshed = await refreshAccessToken();
-        if (!refreshed && !authToken) {
-          return;
-        }
-      }
-      try {
-        const response = await fetch(alivePath, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${authToken}`
-          },
-          body: JSON.stringify({
-            action: "unschedule_alive",
-            slot_id: sid
-          })
-        });
-        const payload = await response.json().catch(() => null);
-        if (response.status === 401 || (payload && payload.session_expired)) {
-          handleLogout(payload && payload.message_text ? payload.message_text : "Session expired. Sign in again.");
-          return;
-        }
-        if (!response.ok || !payload || !payload.ok) {
-          showToast(
-            (payload && payload.message_text) || "Could not remove that schedule.",
-            "error"
-          );
-          return;
-        }
-        showToast(payload.message_text || "Removed.", "success");
-        aliveRenderSignature = "";
-        await refreshAliveFromStatus();
-      } catch (error) {
-        console.error("Lori's Summon unschedule alive failed", error);
-        showToast(randomErrorMessage("could not remove schedule"), "error");
-      }
-    }
-
     async function removeManualSummonSchedule(slotId) {
       const sid = String(slotId || "").trim();
       if (!sid || !authToken) {
@@ -4212,7 +2521,7 @@
         }
         showToast(payload.message_text || "Scheduled summon removed.", "success");
         voiceNotesScheduledRenderSignature = "";
-        await refreshAliveFromStatus();
+        await bootstrapStatusWatch();
       } catch (error) {
         console.error("Lori's Summon unschedule summon failed", error);
         showToast(randomErrorMessage("could not unschedule summon"), "error");
@@ -4239,13 +2548,10 @@
       if (voiceNotesPanel) {
         voiceNotesPanel.classList.toggle("hidden", activeTab !== "voice-notes");
       }
-      if (alivePanel) {
-        alivePanel.classList.toggle("hidden", activeTab !== "alive");
-      }
       updateVoiceNotesSentinel();
     }
 
-    const DEEP_LINK_TAB_IDS = new Set(["summon", "sent-summons", "voice-notes", "alive"]);
+    const DEEP_LINK_TAB_IDS = new Set(["summon", "sent-summons", "voice-notes"]);
 
     function tabFromDeepLink(rawTab) {
       const normalized = String(rawTab || "").trim().toLowerCase();
@@ -4254,9 +2560,6 @@
       }
       if (normalized === "sent-summons" || normalized === "voice-notes") {
         return "voice-notes";
-      }
-      if (normalized === "alive") {
-        return "alive";
       }
       if (normalized === "summon") {
         return "summon";
@@ -4287,8 +2590,6 @@
       let nextTab = "summon";
       if (tabName === "voice-notes" || tabName === "sent-summons") {
         nextTab = "sent-summons";
-      } else if (tabName === "alive") {
-        nextTab = "alive";
       }
       try {
         const url = new URL(window.location.href);
@@ -4351,11 +2652,8 @@
     async function activateTab(tabName, {
       syncUrl = true
     } = {}) {
-      stopAliveScheduleClock();
       if (tabName === "voice-notes" || tabName === "sent-summons") {
         activeTab = "voice-notes";
-      } else if (tabName === "alive") {
-        activeTab = "alive";
       } else {
         activeTab = "summon";
       }
@@ -4368,20 +2666,9 @@
       if (activeTab === "voice-notes") {
         voiceNotesScheduledRenderSignature = "";
         renderVoiceNotesScheduledRegion(lastStatusPayload);
-        startAliveScheduleClock();
       }
       if (activeTab === "summon") {
         updateSummonWhenBounds();
-      }
-      if (activeTab === "alive") {
-        if (lastStatusPayload) {
-          aliveRenderSignature = "";
-          syncAlivePanel(lastStatusPayload);
-        } else {
-          await refreshAliveFromStatus();
-        }
-        updateAliveManualScheduleBounds();
-        startAliveScheduleClock();
       }
       if (syncUrl) {
         syncUrlHashForTab(activeTab);
@@ -5146,11 +3433,8 @@
     }
 
     function showLoginPanel(message = defaultLoginStatus) {
-      stopAliveScheduleClock();
-      closeAliveSettingsModal();
       disconnectStatusStream();
       clearStatusReconnect();
-      statusBootstrapComplete = false;
       watchedEventStates.clear();
       clearAttachmentSelection();
       clearVoiceNoteCapture();
@@ -5158,41 +3442,7 @@
       updateVoiceNoteButtons();
       resetVoiceNotesState();
       lastStatusPayload = null;
-      aliveRenderSignature = "";
       voiceNotesScheduledRenderSignature = "";
-      watchedAliveEventStates.clear();
-      if (aliveToolbarStatus) {
-        aliveToolbarStatus.textContent = "";
-      }
-      if (aliveListStatus) {
-        aliveListStatus.textContent = "Open this tab to load alive checks.";
-      }
-      if (aliveList) {
-        aliveList.innerHTML = "";
-      }
-      const aliveScheduleCaption = document.getElementById("alive-schedule-caption");
-      const aliveScheduleSlots = document.getElementById("alive-schedule-slots");
-      if (aliveScheduleCaption) {
-        aliveScheduleCaption.textContent =
-          "Today's random slots (local Home Assistant time) appear here once loaded.";
-      }
-      if (aliveScheduleSlots) {
-        aliveScheduleSlots.innerHTML = "";
-      }
-      if (aliveResetScheduleButton) {
-        aliveResetScheduleButton.disabled = false;
-      }
-      const aliveManualWhenClear = document.getElementById("alive-manual-when");
-      const aliveManualMessageClear = document.getElementById("alive-manual-message");
-      if (aliveManualWhenClear) {
-        aliveManualWhenClear.value = "";
-      }
-      if (aliveManualMessageClear) {
-        aliveManualMessageClear.value = "";
-      }
-      if (aliveManualScheduleButton) {
-        aliveManualScheduleButton.disabled = false;
-      }
       const summonWhenClear = document.getElementById("summon-when");
       if (summonWhenClear) {
         summonWhenClear.value = "";
@@ -5200,11 +3450,6 @@
       const scheduledRegionLogout = document.getElementById("voice-notes-scheduled-region");
       if (scheduledRegionLogout) {
         scheduledRegionLogout.innerHTML = "";
-      }
-      webPushLocalSubscribed = false;
-      refreshWebPushButtonVisibility();
-      if (webPushStatusEl) {
-        webPushStatusEl.textContent = "";
       }
       activeTab = "summon";
       applyActiveTab();
@@ -5221,12 +3466,6 @@
       updateVoiceNoteButtons();
       applyActiveTab();
       document.body.classList.remove("loading");
-      void (async () => {
-        await syncWebPushRegistrationState();
-        if (lastStatusPayload) {
-          updateWebPushSubscriptionSummary(lastStatusPayload);
-        }
-      })();
     }
 
     function randomSuccessMessage() {
@@ -5270,15 +3509,12 @@
         "voice note exceeds the 75 mb upload limit": "voice note exceeds the 75 MB upload limit",
         "attachments require a home assistant allowlist external dirs entry": "attachments need an allowed Home Assistant upload directory",
         "delivery failed": "pushover delivery failed",
-        "alive check expired": "alive check expired on the device before acknowledgment",
         "webpush unavailable": "web push library is not installed on Home Assistant",
         "vapid unavailable": "could not prepare web push keys",
         "invalid subscription": "browser subscription payload was invalid",
         "subscribe failed": "web push subscribe request failed",
         "web push unsubscribe failed": "web push unsubscribe failed",
         "nothing to unsubscribe on this browser": "nothing to unsubscribe",
-        "alive delete failed": "could not remove alive check",
-        "alive flush failed": "could not clear alive history",
         "could not add schedule": "could not add custom schedule",
         "could not remove schedule": "could not remove custom schedule",
         "could not schedule summon": "could not add scheduled summon",
@@ -5515,7 +3751,6 @@
           throw new Error(`HTTP ${response.status}`);
         }
         const payload = await response.json();
-        statusBootstrapComplete = true;
         syncWatchedEvents(payload);
         return true;
       } catch (error) {
@@ -5598,11 +3833,7 @@
       const nextWatched = buildWatchedEventMap(payload);
       const eventIndex = buildEventIndex(payload);
       syncVoiceNotesHistory(payload);
-      syncAliveWatchedToasts(payload);
-      syncAlivePanel(payload);
       renderVoiceNotesScheduledRegion(payload);
-      updateWebPushSubscriptionSummary(payload);
-      updateAliveIntroFromStatus(payload);
 
       watchedEventStates.clear();
       nextWatched.forEach((value, key) => {

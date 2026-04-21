@@ -11,8 +11,6 @@
         "custom_components.loris_summon"
     ],
     "name": "Lori's Summon",
-    "requirements": [
-        "pywebpush>=1.14.0,<3"
-    ],
+    "requirements": [],
     "version": "0.1.0"
 }
