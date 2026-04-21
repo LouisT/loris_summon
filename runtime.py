@@ -15,7 +15,6 @@ from itertools import chain
 import json
 import logging
 import mimetypes
-import os
 from pathlib import Path
 import secrets
 from typing import Any
@@ -96,7 +95,6 @@ from .const import (
     CONF_WEB_USERNAME,
     DEFAULT_ALERT_TITLE,
     DEFAULT_COOLDOWN_SECONDS,
-    DEFAULT_ENABLE_WEB,
     DEFAULT_HISTORY_SIZE,
     DEFAULT_LIGHT_FLASH_BRIGHTNESS,
     DEFAULT_LIGHT_FLASH_COLOR,
@@ -128,7 +126,6 @@ from .const import (
     DOMAIN,
     EVENT_ACKNOWLEDGED,
     EVENT_TRIGGERED,
-    ICON_PATH,
     PUSHOVER_CALLBACK_PATH,
     PUSHOVER_PRIORITY_DEFAULT,
     PUSHOVER_PRIORITY_EMERGENCY,
@@ -137,16 +134,7 @@ from .const import (
     PUSHOVER_PRIORITY_NORMAL,
     VOICE_NOTE_FILE_PATH,
     VOICE_NOTE_PLAY_PATH,
-    WEB_PATH,
     STORE_SUMMON_SCHEDULE,
-    STORE_WEB_PUSH_SUBSCRIPTIONS,
-    STORE_WEB_PUSH_VAPID_PRIVATE,
-    STORE_WEB_PUSH_VAPID_PUBLIC,
-    WEB_PUSH_KEYS_DIR_NAME,
-    WEB_PUSH_MAX_SUBSCRIPTIONS,
-    WEB_PUSH_VAPID_PRIVATE_FILENAME,
-    WEB_PUSH_VAPID_PUBLIC_FILENAME,
-    WEB_PUSH_VAPID_SUB,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -164,7 +152,6 @@ RESTORE_COLOR_ATTRS = (
 )
 LIGHT_RESTORE_RETRIES = 5
 LIGHT_RESTORE_RETRY_DELAY = 0.5
-REMINDER_INTERVAL_SECONDS = 300
 STORE_VERSION = 1
 STORE_ACTIVE_EVENT_ID = "active_event_id"
 STORE_WATCHED_EVENTS = "watched_events"
@@ -342,13 +329,9 @@ class LorisSummonRuntime:
         self._active_event_id: str | None = None
         self._last_trigger_at: datetime | None = None
         self._recent_trigger_times: list[datetime] = []
-        self._reminder_task: asyncio.Task[None] | None = None
         self._watched_events: dict[str, dict[str, Any]] = {}
         self._summon_schedule_unsubs: list[Callable[[], None]] = []
         self._summon_schedule_blob: dict[str, Any] = {"manual_slots": []}
-        self._web_push_vapid_private_pem: str | None = None
-        self._web_push_vapid_public_b64u: str | None = None
-        self._web_push_subscriptions: list[dict[str, Any]] = []
 
     async def async_initialize(self) -> None:
         # Restore persisted summon state so entities survive Home Assistant restarts
@@ -391,9 +374,6 @@ class LorisSummonRuntime:
             self._summon_schedule_blob = dict(summon_sched)
         if not isinstance(self._summon_schedule_blob.get("manual_slots"), list):
             self._summon_schedule_blob["manual_slots"] = []
-
-        # Web Push feature removed.
-        self._web_push_subscriptions = []
 
         self._debug(
             "restored %s history items with active event %s",
@@ -515,38 +495,6 @@ class LorisSummonRuntime:
             event_id="test",
         )
 
-    async def async_acknowledge(
-        self,
-        acknowledged_by: str = "service",
-        source: str = "service",
-        *,
-        cancel_receipt: bool = True,
-    ) -> dict[str, Any]:
-        # Update the live record so persisted history and entities stay consistent
-        active = self._active_event_record()
-        if active is None:
-            return {"acknowledged": False, "reason": "no_active_summon"}
-
-        if cancel_receipt:
-            await self._async_cancel_active_receipt(active)
-
-        now = dt_util.utcnow().isoformat()
-        self._apply_local_acknowledgment(active, acknowledged_by, now)
-        self._active_event_id = None
-        self._cancel_reminder_task()
-        self._watched_events.pop(str(active.get(ATTR_EVENT_ID) or ""), None)
-        payload = dict(active)
-        payload[ATTR_SOURCE] = source
-        self.hass.bus.async_fire(EVENT_ACKNOWLEDGED, payload)
-        await self._async_commit_state()
-        self._debug("acknowledged summon %s from %s",
-                    active[ATTR_EVENT_ID], source)
-        return {
-            "acknowledged": True,
-            "event_id": active[ATTR_EVENT_ID],
-            "acknowledged_at": now,
-        }
-
     async def async_acknowledge_all(
         self,
         acknowledged_by: str = "service",
@@ -571,7 +519,6 @@ class LorisSummonRuntime:
             event_ids.append(str(event.get(ATTR_EVENT_ID) or ""))
 
         self._active_event_id = None
-        self._cancel_reminder_task()
         self._watched_events.clear()
         await self._async_commit_state()
         self._debug(
@@ -632,7 +579,6 @@ class LorisSummonRuntime:
         event_id = str(event.get(ATTR_EVENT_ID) or "")
         if event_id == str(self._active_event_id or ""):
             self._active_event_id = None
-            self._cancel_reminder_task()
         self._watched_events.pop(event_id, None)
         if was_watched:
             payload = dict(event)
@@ -955,238 +901,9 @@ class LorisSummonRuntime:
         event_id = str(event.get(ATTR_EVENT_ID) or "")
         if event_id == str(self._active_event_id or ""):
             self._active_event_id = None
-            self._cancel_reminder_task()
         self._watched_events.pop(event_id, None)
-        await self._async_send_web_push_missing_ack(event)
         await self._async_commit_state()
         self._notify_state_changed()
-
-    async def _async_send_web_push_missing_ack(self, _event: dict[str, Any]) -> None:
-        # Web Push feature removed.
-        return
-
-    async def async_ensure_web_push_vapid_keys(self) -> bool:
-        if self._web_push_vapid_private_pem and self._web_push_vapid_public_b64u:
-            return True
-        if await self._async_load_web_push_vapid_from_disk():
-            return True
-        return await self._async_generate_and_write_web_push_vapid()
-
-    async def async_regenerate_web_push_keys(self) -> dict[str, Any]:
-        """Rotate VAPID keys on disk and clear subscriptions (clients must re-subscribe)."""
-        try:
-            import pywebpush  # noqa: F401
-        except ImportError:
-            return {"ok": False, "error": "webpush_unavailable"}
-        await self.hass.async_add_executor_job(self._sync_remove_web_push_vapid_files)
-        self._web_push_vapid_private_pem = None
-        self._web_push_vapid_public_b64u = None
-        self._web_push_subscriptions = []
-        if not await self._async_generate_and_write_web_push_vapid():
-            return {"ok": False, "error": "vapid_generation_failed"}
-        await self._async_save_state()
-        self._notify_state_changed()
-        try:
-            await self.hass.services.async_call(
-                "persistent_notification",
-                "create",
-                {
-                    "title": "Lori's Summon: Web Push keys rotated",
-                    "message": (
-                        "New VAPID keys were written to disk and saved subscriptions were cleared. "
-                        "Open the summon page and enable browser notifications again."
-                    ),
-                    "notification_id": f"{DOMAIN}_webpush_keys_regenerated",
-                },
-            )
-        except (HomeAssistantError, ValueError, TypeError) as err:
-            _LOGGER.info(
-                "Web Push keys rotated (notification not shown: %s); "
-                "re-enable browser notifications on the summon page.",
-                err,
-            )
-        return {
-            "ok": True,
-            "public_key": self._web_push_vapid_public_b64u or "",
-        }
-
-    def _web_push_keys_dir(self) -> Path:
-        return Path(self.hass.config.path(DOMAIN)) / WEB_PUSH_KEYS_DIR_NAME
-
-    def _web_push_private_key_path(self) -> Path:
-        return self._web_push_keys_dir() / WEB_PUSH_VAPID_PRIVATE_FILENAME
-
-    def _web_push_public_key_path(self) -> Path:
-        return self._web_push_keys_dir() / WEB_PUSH_VAPID_PUBLIC_FILENAME
-
-    def _sync_load_web_push_vapid_files(self) -> tuple[str, str] | None:
-        priv_path = self._web_push_private_key_path()
-        pub_path = self._web_push_public_key_path()
-        if not priv_path.is_file() or not pub_path.is_file():
-            return None
-        pem = priv_path.read_text(encoding="utf-8").strip()
-        pub_b64 = pub_path.read_text(encoding="utf-8").strip()
-        if not pem or not pub_b64:
-            return None
-        derived_pub = _sync_vapid_public_b64u_from_private_pem(pem)
-        if derived_pub is None or derived_pub != pub_b64:
-            _LOGGER.warning(
-                "Ignoring invalid Web Push VAPID key files at %s and %s",
-                priv_path,
-                pub_path,
-            )
-            return None
-        return pem, pub_b64
-
-    def _sync_write_web_push_vapid_files(self, pem: str, pub_b64u: str) -> None:
-        base = self._web_push_keys_dir()
-        base.mkdir(parents=True, exist_ok=True)
-        priv_path = self._web_push_private_key_path()
-        pub_path = self._web_push_public_key_path()
-        pem_text = pem if pem.endswith("\n") else f"{pem}\n"
-        priv_path.write_text(pem_text, encoding="utf-8")
-        os.chmod(priv_path, 0o600)
-        pub_path.write_text(f"{pub_b64u.strip()}\n", encoding="utf-8")
-        os.chmod(pub_path, 0o644)
-
-    def _sync_remove_web_push_vapid_files(self) -> None:
-        for path in (self._web_push_private_key_path(), self._web_push_public_key_path()):
-            try:
-                path.unlink(missing_ok=True)
-            except OSError:
-                pass
-
-    async def _async_load_web_push_vapid_from_disk(self) -> bool:
-        loaded = await self.hass.async_add_executor_job(
-            self._sync_load_web_push_vapid_files
-        )
-        if loaded is None:
-            return False
-        pem, pub_b64 = loaded
-        self._web_push_vapid_private_pem = pem
-        self._web_push_vapid_public_b64u = pub_b64
-        return True
-
-    async def _async_write_web_push_vapid_to_disk(self, pem: str, pub_b64u: str) -> None:
-        def _write() -> None:
-            self._sync_write_web_push_vapid_files(pem, pub_b64u)
-
-        await self.hass.async_add_executor_job(_write)
-
-    def _stored_has_legacy_web_push_vapid(self, stored: dict[str, Any]) -> bool:
-        priv = stored.get(STORE_WEB_PUSH_VAPID_PRIVATE)
-        pub = stored.get(STORE_WEB_PUSH_VAPID_PUBLIC)
-        return (isinstance(priv, str) and priv.strip()) or (
-            isinstance(pub, str) and pub.strip()
-        )
-
-    async def _async_init_web_push_vapid(self, stored: dict[str, Any]) -> None:
-        # Prefer PEM + public on disk; migrate from JSON store once; otherwise generate on first use.
-        if await self._async_load_web_push_vapid_from_disk():
-            if self._stored_has_legacy_web_push_vapid(stored):
-                await self._async_save_state()
-            return
-
-        vapid_priv = stored.get(STORE_WEB_PUSH_VAPID_PRIVATE)
-        vapid_pub = stored.get(STORE_WEB_PUSH_VAPID_PUBLIC)
-        if (
-            isinstance(vapid_priv, str)
-            and vapid_priv.strip()
-            and isinstance(vapid_pub, str)
-            and vapid_pub.strip()
-        ):
-            pem = vapid_priv.strip()
-            pub_b64 = vapid_pub.strip()
-            derived_pub = await self.hass.async_add_executor_job(
-                _sync_vapid_public_b64u_from_private_pem,
-                pem,
-            )
-            if derived_pub is None or derived_pub != pub_b64:
-                _LOGGER.warning(
-                    "Ignoring invalid legacy Web Push VAPID keys from stored state; generating new keys"
-                )
-                if not await self._async_generate_and_write_web_push_vapid():
-                    self._debug("web push vapid keys were not created at startup (optional)")
-                return
-            self._web_push_vapid_private_pem = pem
-            self._web_push_vapid_public_b64u = pub_b64
-            await self._async_write_web_push_vapid_to_disk(pem, pub_b64)
-            await self._async_save_state()
-            return
-
-        if not await self._async_generate_and_write_web_push_vapid():
-            self._debug("web push vapid keys were not created at startup (optional)")
-
-    async def _async_generate_and_write_web_push_vapid(self) -> bool:
-        try:
-            pem, pub_b64 = await self.hass.async_add_executor_job(
-                _sync_generate_web_push_vapid_pair
-            )
-        except Exception as err:
-            _LOGGER.warning("Web Push VAPID key generation failed: %s", err)
-            return False
-        self._web_push_vapid_private_pem = pem
-        self._web_push_vapid_public_b64u = pub_b64
-        await self._async_write_web_push_vapid_to_disk(pem, pub_b64)
-        return True
-
-    def web_push_public_config(self) -> dict[str, Any]:
-        return {
-            "public_key": self._web_push_vapid_public_b64u or "",
-            "subscription_count": len(self._web_push_subscriptions),
-            "max_subscriptions": WEB_PUSH_MAX_SUBSCRIPTIONS,
-        }
-
-    async def async_register_web_push_subscription(self, info: Any) -> dict[str, Any]:
-        try:
-            import pywebpush  # noqa: F401
-        except ImportError:
-            return {"ok": False, "reason": "webpush_unavailable"}
-        if not isinstance(info, dict):
-            return {"ok": False, "reason": "invalid_body"}
-        endpoint = str(info.get("endpoint") or "").strip()
-        keys = info.get("keys")
-        if not endpoint or not isinstance(keys, dict):
-            return {"ok": False, "reason": "invalid_subscription"}
-        p256 = str(keys.get("p256dh") or "").strip()
-        auth_k = str(keys.get("auth") or "").strip()
-        if not p256 or not auth_k:
-            return {"ok": False, "reason": "invalid_keys"}
-        sub_record: dict[str, Any] = {
-            "endpoint": endpoint,
-            "keys": {"p256dh": p256, "auth": auth_k},
-        }
-        exp = info.get("expirationTime")
-        if exp is not None:
-            sub_record["expirationTime"] = exp
-        if not await self.async_ensure_web_push_vapid_keys():
-            return {"ok": False, "reason": "vapid_unavailable"}
-        self._web_push_subscriptions = [
-            s
-            for s in self._web_push_subscriptions
-            if str(s.get("endpoint") or "").strip() != endpoint
-        ]
-        self._web_push_subscriptions.insert(0, sub_record)
-        self._web_push_subscriptions = self._web_push_subscriptions[
-            :WEB_PUSH_MAX_SUBSCRIPTIONS
-        ]
-        await self._async_save_state()
-        return {"ok": True, "count": len(self._web_push_subscriptions)}
-
-    async def async_unregister_web_push_subscription(self, endpoint: str) -> dict[str, Any]:
-        ep = str(endpoint or "").strip()
-        if not ep:
-            return {"ok": False, "reason": "missing_endpoint"}
-        before = len(self._web_push_subscriptions)
-        self._web_push_subscriptions = [
-            s
-            for s in self._web_push_subscriptions
-            if str(s.get("endpoint") or "").strip() != ep
-        ]
-        if len(self._web_push_subscriptions) == before:
-            return {"ok": False, "reason": "not_found"}
-        await self._async_save_state()
-        return {"ok": True, "count": len(self._web_push_subscriptions)}
 
     async def async_clear_watched_events(self) -> int:
         # Cancel watched emergency retries and close them locally so the UI stops waiting on them
@@ -1199,7 +916,6 @@ class LorisSummonRuntime:
                 item[ATTR_DISPOSITION] = "cancelled"
             if str(item.get(ATTR_EVENT_ID) or "") == str(self._active_event_id or ""):
                 self._active_event_id = None
-                self._cancel_reminder_task()
         if not watched_items:
             return 0
         self._watched_events.clear()
@@ -1286,26 +1002,13 @@ class LorisSummonRuntime:
             return None
         return claims
 
-    def web_page_token_matches(self, token: str | None) -> bool:
-        # Keep auth checks simple at the call sites by exposing a boolean wrapper
-        return self.web_page_token_claims(token) is not None
-
     def web_page_token_refresh_window_seconds(self) -> int:
         # Let the frontend renew early without hard coding token timing
         return WEB_JWT_REFRESH_WINDOW_SECONDS
 
     async def async_shutdown(self) -> None:
-        # Cancel background reminders so unloads do not leave orphaned tasks behind
+        # Cancel scheduled summon timers so unloads do not leave orphaned tasks behind
         self._cancel_summon_schedule_handles()
-        task = self._reminder_task
-        self._reminder_task = None
-        if task is None:
-            return
-        task.cancel()
-        try:
-            await task
-        except asyncio.CancelledError:
-            pass
 
     async def async_store_attachment(
         self,
@@ -1528,7 +1231,6 @@ class LorisSummonRuntime:
             if voice_note_path:
                 voice_note_paths.add(voice_note_path)
 
-        self._cancel_reminder_task()
         self._active_event_id = None
         self._watched_events.clear()
         self._history = []
@@ -1681,10 +1383,7 @@ class LorisSummonRuntime:
             links.append(
                 f'<a href="{html.escape(voice_note_url, quote=True)}">Voice Note</a>'
             )
-        elif (
-            str(payload.get(ATTR_VOICE_NOTE_PATH) or "").strip()
-            and not payload.get("reminder")
-        ):
+        elif str(payload.get(ATTR_VOICE_NOTE_PATH) or "").strip():
             self._debug(
                 "voice note present for %s but no reachable playback URL could be built",
                 str(payload.get(ATTR_EVENT_ID) or ""),
@@ -1694,10 +1393,7 @@ class LorisSummonRuntime:
             links.append(
                 f'<a href="{html.escape(attachment_url, quote=True)}">Attachment</a>'
             )
-        elif (
-            str(payload.get(ATTR_ATTACHMENT_PATH) or "").strip()
-            and not payload.get("reminder")
-        ):
+        elif str(payload.get(ATTR_ATTACHMENT_PATH) or "").strip():
             self._debug(
                 "attachment present for %s but no reachable download URL could be built",
                 str(payload.get(ATTR_EVENT_ID) or ""),
@@ -1739,7 +1435,7 @@ class LorisSummonRuntime:
             form.add_field("sound", pushover_sound)
         if priority_label == PUSHOVER_PRIORITY_EMERGENCY:
             form.add_field("retry", str(DEFAULT_PUSHOVER_EMERGENCY_RETRY))
-            form.add_field("expire", str(self._emergency_expire_seconds(payload)))
+            form.add_field("expire", str(DEFAULT_PUSHOVER_SUMMON_EMERGENCY_EXPIRE))
             callback_url = self._pushover_callback_url()
             if callback_url:
                 form.add_field("callback", callback_url)
@@ -1748,9 +1444,6 @@ class LorisSummonRuntime:
                     "Lori's Summon could not determine a public Home Assistant URL for the Pushover callback"
                 )
         return form
-
-    def _emergency_expire_seconds(self, _payload: dict[str, Any]) -> int:
-        return DEFAULT_PUSHOVER_SUMMON_EMERGENCY_EXPIRE
 
     def _pushover_delivery_metadata(
         self,
@@ -1762,7 +1455,7 @@ class LorisSummonRuntime:
         if priority_label != PUSHOVER_PRIORITY_EMERGENCY:
             return {}
         receipt = str(response_data.get("receipt", "")).strip()
-        expire_seconds = self._emergency_expire_seconds(payload)
+        expire_seconds = DEFAULT_PUSHOVER_SUMMON_EMERGENCY_EXPIRE
         metadata: dict[str, Any] = {
             ATTR_PUSHOVER_ACKNOWLEDGED: False,
             ATTR_PUSHOVER_ACKNOWLEDGED_AT: None,
@@ -1811,7 +1504,7 @@ class LorisSummonRuntime:
         return sound_map.get(priority, "")
 
     def _attachment_uploads_dir(self) -> Path:
-        # Keep upload files inside the Home Assistant config directory for reminders and retries
+        # Keep upload files inside the Home Assistant config directory for retries and previews
         return Path(self.hass.config.path("loris_summon_uploads"))
 
     def _voice_note_uploads_dir(self) -> Path:
@@ -2059,32 +1752,6 @@ class LorisSummonRuntime:
             )
         ).encode("utf-8")
 
-    async def _async_send_reminder(self, active: dict[str, Any]) -> None:
-        # Reuse the summon payload so reminder notifications follow the same template and target
-        now = dt_util.utcnow()
-        next_reminder_at = self._next_reminder_at(now).isoformat()
-        next_count = int(active.get(ATTR_REMINDER_COUNT, 0)) + 1
-        payload = dict(active)
-        payload[ATTR_REMINDER_COUNT] = next_count
-        payload[ATTR_PENDING_ACK] = True
-        payload["reminder"] = True
-        try:
-            await self._send_notification(payload)
-        except Exception as err:
-            # Move the schedule forward even on delivery failures so retries stay bounded
-            active[ATTR_NEXT_REMINDER_AT] = next_reminder_at
-            await self._async_commit_state()
-            _LOGGER.warning("Failed to send Lori's Summon reminder: %s", err)
-            return
-        active[ATTR_REMINDER_COUNT] = next_count
-        active[ATTR_NEXT_REMINDER_AT] = next_reminder_at
-        await self._async_commit_state()
-        self._debug(
-            "sent reminder %s for summon %s",
-            active[ATTR_REMINDER_COUNT],
-            active[ATTR_EVENT_ID],
-        )
-
     async def _async_flash_lights_safely(self) -> None:
         # Keep light failures out of the HTTP response path because summon delivery is the primary action
         try:
@@ -2165,66 +1832,8 @@ class LorisSummonRuntime:
             priority=cleaned_priority,
         )
 
-    def _restore_reminder_state(self) -> None:
-        # Backfill reminder metadata for summons created before reminders were added
-        active = self._active_event_record()
-        if active is None:
-            return
-        if self._is_emergency_event(active):
-            active[ATTR_NEXT_REMINDER_AT] = None
-            return
-        active.setdefault(ATTR_REMINDER_COUNT, 0)
-        active.setdefault(
-            ATTR_NEXT_REMINDER_AT,
-            self._next_reminder_at(self._event_time(active)).isoformat(),
-        )
-
-    def _ensure_reminder_task(self) -> None:
-        # Run at most one reminder loop because only one summon can be active
-        active = self._active_event_record()
-        if active is None or self._is_emergency_event(active):
-            return
-        if self._reminder_task is not None and not self._reminder_task.done():
-            return
-        self._reminder_task = self.hass.async_create_task(
-            self._async_reminder_loop())
-
-    def _cancel_reminder_task(self) -> None:
-        # Cancel the current reminder loop before switching the active summon
-        if self._reminder_task is None:
-            return
-        self._reminder_task.cancel()
-        self._reminder_task = None
-
-    async def _async_reminder_loop(self) -> None:
-        # Keep reminding until the summon is acknowledged or superseded
-        try:
-            while True:
-                active = self._active_event_record()
-                if active is None:
-                    return
-                await asyncio.sleep(self._seconds_until_reminder(active))
-                active = self._active_event_record()
-                if active is None:
-                    return
-                await self._async_send_reminder(active)
-        except asyncio.CancelledError:
-            raise
-
-    def _seconds_until_reminder(self, active: dict[str, Any]) -> float:
-        # Honor the stored next reminder time so reminders resume cleanly after restarts
-        next_reminder = dt_util.parse_datetime(
-            str(active.get(ATTR_NEXT_REMINDER_AT) or ""))
-        if next_reminder is None:
-            next_reminder = self._next_reminder_at(dt_util.utcnow())
-            active[ATTR_NEXT_REMINDER_AT] = next_reminder.isoformat()
-        return max(0.0, (next_reminder - dt_util.utcnow()).total_seconds())
-
-    def _next_reminder_at(self, base_time: datetime) -> datetime:
-        return base_time + timedelta(seconds=REMINDER_INTERVAL_SECONDS)
-
     def _event_time(self, event: dict[str, Any]) -> datetime:
-        # Fall back to now so malformed restored state does not break the reminder loop
+        # Fall back to now when the stored trigger timestamp is missing or invalid
         triggered_at = dt_util.parse_datetime(
             str(event.get(ATTR_TRIGGERED_AT) or ""))
         return triggered_at or dt_util.utcnow()
@@ -2737,77 +2346,6 @@ class LorisSummonRuntime:
             return [max(0, min(255, int(channel))) for channel in value]
         except (TypeError, ValueError):
             return None
-
-
-def _sync_generate_web_push_vapid_pair() -> tuple[str, str]:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-    from cryptography.hazmat.primitives.asymmetric import ec
-
-    private_key = ec.generate_private_key(ec.SECP256R1(), default_backend())
-    pem = private_key.private_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PrivateFormat.PKCS8,
-        encryption_algorithm=serialization.NoEncryption(),
-    ).decode("utf-8")
-    pub_bytes = private_key.public_key().public_bytes(
-        encoding=serialization.Encoding.X962,
-        format=serialization.PublicFormat.UncompressedPoint,
-    )
-    return pem, _jwt_b64encode(pub_bytes)
-
-
-def _sync_vapid_public_b64u_from_private_pem(private_pem: str) -> str | None:
-    from cryptography.hazmat.backends import default_backend
-    from cryptography.hazmat.primitives import serialization
-
-    try:
-        private_key = serialization.load_pem_private_key(
-            private_pem.encode("utf-8"),
-            password=None,
-            backend=default_backend(),
-        )
-    except Exception:
-        return None
-    try:
-        pub_bytes = private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.X962,
-            format=serialization.PublicFormat.UncompressedPoint,
-        )
-    except Exception:
-        return None
-    return _jwt_b64encode(pub_bytes)
-
-
-def _web_push_send_sync(
-    subscription_info: dict[str, Any],
-    data: str,
-    private_pem: str,
-    sub_claim: str,
-) -> str | None:
-    """Return None on success, or \"gone\" if the subscription should be removed."""
-    from pywebpush import WebPushException, webpush
-
-    try:
-        webpush(
-            subscription_info=subscription_info,
-            data=data,
-            vapid_private_key=private_pem,
-            vapid_claims={"sub": sub_claim},
-            ttl=3600,
-            timeout=20,
-        )
-        return None
-    except WebPushException as exc:
-        resp = getattr(exc, "response", None)
-        code = getattr(resp, "status_code", None) if resp is not None else None
-        if code in (404, 410):
-            return "gone"
-        _LOGGER.warning("Web Push delivery failed: %s", exc)
-        return None
-    except Exception as exc:
-        _LOGGER.warning("Web Push delivery error: %s", exc)
-        return None
 
 
 def _as_list(value: Any) -> list[str]:

@@ -99,7 +99,6 @@ EVENT_TRIGGERED = "loris_summon_triggered"
 SERVICE_ACKNOWLEDGE = "acknowledge"
 SERVICE_TRIGGER = "trigger"
 SERVICE_TEST_ACTIONS = "test_actions"
-SERVICE_REGENERATE_WEB_PUSH_KEYS = "regenerate_web_push_keys"
 
 ACKNOWLEDGE_PATH = "/api/loris_summon/acknowledge"
 ATTACHMENT_FILE_PATH = "/api/loris_summon/attachment/file"
@@ -123,21 +122,3 @@ SUMMON_SOURCE_SCHEDULED = "summon_scheduled"
 SUMMON_SCHEDULE_MAX_MESSAGE_LEN = 2000
 SUMMON_SCHEDULE_MAX_PENDING = 20
 SUMMON_SCHEDULE_MAX_LEAD_DAYS = 14
-
-# Legacy JSON-store keys (migrated to on-disk PEM / public key files on load).
-STORE_WEB_PUSH_VAPID_PRIVATE = "web_push_vapid_private_pem"
-STORE_WEB_PUSH_VAPID_PUBLIC = "web_push_vapid_public_b64u"
-STORE_WEB_PUSH_SUBSCRIPTIONS = "web_push_subscriptions"
-
-WEB_PUSH_KEYS_DIR_NAME = "webpush"
-WEB_PUSH_VAPID_PRIVATE_FILENAME = "vapid_private.pem"
-WEB_PUSH_VAPID_PUBLIC_FILENAME = "vapid_public.b64u"
-
-WEB_PUSH_VAPID_SUB = "mailto:loris-summon-webpush@invalid"
-WEB_PUSH_MAX_SUBSCRIPTIONS = 10
-
-WEB_PUSH_VAPID_PATH = "/api/loris_summon/webpush/vapid"
-WEB_PUSH_SUBSCRIBE_PATH = "/api/loris_summon/webpush/subscribe"
-WEB_PUSH_UNSUBSCRIBE_PATH = "/api/loris_summon/webpush/unsubscribe"
-WEB_PUSH_SW_PATH = "/api/loris_summon/webpush/sw.js"
-WEB_PUSH_SW_SCOPE = "/api/loris_summon/"
